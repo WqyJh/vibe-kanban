@@ -1,7 +1,6 @@
 import { type ReactNode } from "react";
 import WorkspacesUnavailablePage from "@remote/pages/WorkspacesUnavailablePage";
 import { useResolvedRelayWorkspaceHostId } from "@remote/shared/hooks/useResolvedRelayWorkspaceHostId";
-import { RemoteUserSystemProvider } from "@remote/app/providers/RemoteUserSystemProvider";
 import { WorkspaceProvider } from "@/shared/providers/WorkspaceProvider";
 import { ExecutionProcessesProvider } from "@/shared/providers/ExecutionProcessesProvider";
 import { LogsPanelProvider } from "@/shared/providers/LogsPanelProvider";
@@ -37,16 +36,14 @@ export function RemoteWorkspacesPageShell({
   }
 
   return (
-    <RemoteUserSystemProvider>
-      <WorkspaceProvider>
-        <ExecutionProcessesProviderWrapper>
-          <TerminalProvider>
-            <LogsPanelProvider>
-              <ActionsProvider>{children}</ActionsProvider>
-            </LogsPanelProvider>
-          </TerminalProvider>
-        </ExecutionProcessesProviderWrapper>
-      </WorkspaceProvider>
-    </RemoteUserSystemProvider>
+    <WorkspaceProvider>
+      <ExecutionProcessesProviderWrapper>
+        <TerminalProvider>
+          <LogsPanelProvider>
+            <ActionsProvider>{children}</ActionsProvider>
+          </LogsPanelProvider>
+        </TerminalProvider>
+      </ExecutionProcessesProviderWrapper>
+    </WorkspaceProvider>
   );
 }
