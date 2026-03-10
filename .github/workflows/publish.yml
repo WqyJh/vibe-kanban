@@ -113,9 +113,16 @@ jobs:
 
           # Publish the exact same package that was tested
           PACKAGE_FILE="${{ steps.verify.outputs.package-file }}"
+          VERSION=$(node -p "require('./package.json').version")
 
-          echo "Publishing $PACKAGE_FILE to npm..."
-          npm publish "$PACKAGE_FILE" --provenance --access public
+          # Prerelease versions (e.g. 0.1.9-main.1) must use --tag so they don't become latest
+          if [[ "$VERSION" == *-* ]]; then
+            echo "Publishing $PACKAGE_FILE (prerelease) to npm with tag 'prerelease'..."
+            npm publish "$PACKAGE_FILE" --provenance --access public --tag prerelease
+          else
+            echo "Publishing $PACKAGE_FILE to npm (latest)..."
+            npm publish "$PACKAGE_FILE" --provenance --access public
+          fi
 
           echo "✅ Successfully published to npm!"
 
