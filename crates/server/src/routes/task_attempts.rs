@@ -488,8 +488,10 @@ async fn generate_commit_message_via_agent(
 
     let pool = &deployment.db().pool;
 
-    let latest_session_info =
-        CodingAgentTurn::find_latest_session_info(pool, session.id).await.ok().flatten();
+    let latest_session_info = CodingAgentTurn::find_latest_session_info(pool, session.id)
+        .await
+        .ok()
+        .flatten();
     let working_dir = workspace
         .agent_working_dir
         .as_ref()
@@ -741,11 +743,10 @@ pub async fn merge_task_attempt(
         return Err(ApiError::Session(SessionError::NotFound));
     }
 
-    if let Some(expected) =
-        ExecutionProcess::latest_executor_profile_for_session(pool, session.id)
-            .await?
-            .map(|p| p.executor.to_string())
-            .or_else(|| session.executor.clone())
+    if let Some(expected) = ExecutionProcess::latest_executor_profile_for_session(pool, session.id)
+        .await?
+        .map(|p| p.executor.to_string())
+        .or_else(|| session.executor.clone())
         && expected != request.executor_profile_id.executor.to_string()
     {
         return Err(ApiError::Session(SessionError::ExecutorMismatch {
