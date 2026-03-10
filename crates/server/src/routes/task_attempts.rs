@@ -27,7 +27,7 @@ use db::models::{
     execution_process::{ExecutionProcess, ExecutionProcessRunReason, ExecutionProcessStatus},
     merge::{Merge, MergeStatus, PrMerge, PullRequestInfo},
     repo::{Repo, RepoError},
-    session::{CreateSession, Session},
+    session::{CreateSession, Session, SessionError},
     task::{Task, TaskRelationships, TaskStatus},
     workspace::{CreateWorkspace, Workspace, WorkspaceError},
     workspace_repo::{CreateWorkspaceRepo, RepoWithTargetBranch, WorkspaceRepo},
@@ -36,6 +36,8 @@ use deployment::Deployment;
 use executors::{
     actions::{
         ExecutorAction, ExecutorActionType,
+        coding_agent_follow_up::CodingAgentFollowUpRequest,
+        coding_agent_initial::CodingAgentInitialRequest,
         script::{ScriptContext, ScriptRequest, ScriptRequestLanguage},
     },
     executors::{CodingAgent, ExecutorError},
@@ -458,9 +460,222 @@ async fn handle_workspaces_ws(
     Ok(())
 }
 
+/// Legacy commit message: task title + optional description (no product names).
+fn legacy_commit_message(task: &Task) -> String {
+    let mut msg = task.title.clone();
+    if let Some(desc) = &task.description
+        && !desc.trim().is_empty()
+    {
+        msg.push_str("\n\n");
+        msg.push_str(desc);
+    }
+    msg
+}
+
+/// Run the workspace's coding agent to generate a conventional commit message.
+/// Uses the given session and executor (same as task page "send" would use).
+/// Tells the agent current and target branch; the agent can run git diff etc. itself.
+/// Returns None if agent fails or timeout.
+async fn generate_commit_message_via_agent(
+    deployment: &DeploymentImpl,
+    workspace: &Workspace,
+    session: &Session,
+    executor_profile_id: &ExecutorProfileId,
+    current_branch: &str,
+    target_branch: &str,
+) -> Option<String> {
+    use std::time::Duration;
+
+    let pool = &deployment.db().pool;
+
+    let latest_session_info =
+        CodingAgentTurn::find_latest_session_info(pool, session.id).await.ok().flatten();
+    let working_dir = workspace
+        .agent_working_dir
+        .as_ref()
+        .filter(|d| !d.is_empty())
+        .cloned();
+
+    let prompt = format!(
+        "The current branch is \"{}\", the target branch is \"{}\". \
+         Generate a conventional commit message for the changes that would be merged from the current branch into the target. \
+         You may run git diff or other commands to inspect the changes.\n\n\
+         Conventional Commits rules (use as-is, do not search):\n\
+         - Subject line format: type(scope): description — one line. Type (required): feat, fix, docs, style, refactor, perf, test, chore, build, ci. Scope (optional): short noun in parentheses. Description: imperative mood, lowercase after colon, no period, under ~72 chars.\n\
+         - For SIMPLE or small changes (e.g. one file, trivial fix): put ONLY the subject line in the block below. No body.\n\
+         - For COMPLEX or larger changes (multiple files, non-trivial logic): put the subject line, then a blank line, then an optional body (bullet points or short paragraphs). No product or tool names.\n\n\
+         You may include reasoning or explanation before or after the block. The commit message will be taken ONLY from the following block.\n\n\
+         Output the commit message in a markdown code block that starts with a line containing exactly \"```commit\" and ends with a line containing exactly \"```\". Example:\n\
+         ```commit\n\
+         feat(merge): improve commit message prompt and parsing\n\
+         ```\n\
+         Or for a complex change:\n\
+         ```commit\n\
+         feat(auth): add login flow\n\n\
+         - Email/password flow\n\
+         - Session cookie handling\n\
+         ```",
+        current_branch, target_branch
+    );
+
+    let action_type = if let Some(info) = latest_session_info {
+        ExecutorActionType::CodingAgentFollowUpRequest(CodingAgentFollowUpRequest {
+            prompt: prompt.clone(),
+            session_id: info.session_id,
+            reset_to_message_id: None,
+            executor_profile_id: (*executor_profile_id).clone(),
+            working_dir: working_dir.clone(),
+        })
+    } else {
+        ExecutorActionType::CodingAgentInitialRequest(CodingAgentInitialRequest {
+            prompt,
+            executor_profile_id: (*executor_profile_id).clone(),
+            working_dir,
+        })
+    };
+
+    let action = ExecutorAction::new(action_type, None);
+
+    let execution_process = deployment
+        .container()
+        .start_execution(
+            workspace,
+            &session,
+            &action,
+            &ExecutionProcessRunReason::CodingAgent,
+        )
+        .await
+        .ok()?;
+
+    // Poll until the agent run completes (or timeout).
+    const POLL_INTERVAL: Duration = Duration::from_millis(500);
+    const TIMEOUT: Duration = Duration::from_secs(90);
+    let deadline = std::time::Instant::now() + TIMEOUT;
+    while std::time::Instant::now() < deadline {
+        tokio::time::sleep(POLL_INTERVAL).await;
+        let Some(ep) = ExecutionProcess::find_by_id(pool, execution_process.id)
+            .await
+            .ok()
+            .flatten()
+        else {
+            continue;
+        };
+        if ep.status != ExecutionProcessStatus::Running {
+            break;
+        }
+    }
+
+    let turn = CodingAgentTurn::find_by_execution_process_id(pool, execution_process.id)
+        .await
+        .ok()??;
+    let summary = turn.summary.as_deref().unwrap_or("").trim();
+    let raw = extract_commit_message_from_agent_response(summary);
+    let raw = raw.trim();
+    let lines: Vec<&str> = raw
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty())
+        .collect();
+    let subject = lines.first().map(|s| (*s).to_string()).unwrap_or_default();
+    if subject.is_empty() {
+        return None;
+    }
+    // Simple commit: one line only. Complex: subject + body (remaining lines).
+    let message = if lines.len() <= 1 {
+        subject
+    } else {
+        let body = lines[1..].join("\n");
+        format!("{}\n\n{}", subject, body)
+    };
+    Some(message)
+}
+
+/// Extracts the commit message from an agent response that may include reasoning and explanation.
+/// Expects the message in a markdown code block: a line starting with "```commit" then content then "```".
+/// Only the content of that block is used. Falls back to the first non-empty line if no such block is found.
+fn extract_commit_message_from_agent_response(summary: &str) -> String {
+    let mut in_block = false;
+    let mut lines: Vec<&str> = Vec::new();
+
+    for line in summary.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("```commit") {
+            in_block = true;
+            continue;
+        }
+        if in_block {
+            if trimmed == "```" {
+                break;
+            }
+            lines.push(line);
+        }
+    }
+
+    if !lines.is_empty() {
+        return lines.join("\n");
+    }
+
+    // Fallback: first non-empty line (for agents that ignore the block format)
+    summary
+        .lines()
+        .find(|l| !l.trim().is_empty())
+        .map(|l| l.trim().to_string())
+        .unwrap_or_default()
+}
+
+#[cfg(test)]
+mod commit_message_tests {
+    use super::extract_commit_message_from_agent_response;
+
+    #[test]
+    fn extracts_from_commit_block_ignoring_reasoning() {
+        let response = "I'll run git diff first to see the changes.\n\n\
+            The diff shows updates to the merge prompt and parsing logic.\n\n\
+            ```commit\n\
+            feat(merge): require structured commit message block and parse it\n\
+            ```\n\n\
+            This ensures only the block content is used.";
+        let got = extract_commit_message_from_agent_response(response);
+        assert_eq!(
+            got,
+            "feat(merge): require structured commit message block and parse it"
+        );
+    }
+
+    #[test]
+    fn extracts_multiline_commit_with_body() {
+        let response = "Summary of changes:\n\n\
+            ```commit\n\
+            feat(auth): add login flow\n\n\
+            - Email/password flow\n\
+            - Session cookie handling\n\
+            ```";
+        let got = extract_commit_message_from_agent_response(response);
+        assert_eq!(
+            got,
+            "feat(auth): add login flow\n\n- Email/password flow\n- Session cookie handling"
+        );
+    }
+
+    #[test]
+    fn fallback_to_first_line_when_no_block() {
+        let response = "feat(api): add endpoint\n\nSome extra text.";
+        let got = extract_commit_message_from_agent_response(response);
+        assert_eq!(got, "feat(api): add endpoint");
+    }
+
+    #[test]
+    fn empty_response_returns_empty() {
+        let got = extract_commit_message_from_agent_response("");
+        assert_eq!(got, "");
+    }
+}
+
 #[derive(Debug, Deserialize, Serialize, TS)]
 pub struct MergeTaskAttemptRequest {
     pub repo_id: Uuid,
+    pub session_id: Uuid,
+    pub executor_profile_id: ExecutorProfileId,
 }
 
 #[derive(Debug, Deserialize, Serialize, TS)]
@@ -518,18 +733,43 @@ pub async fn merge_task_attempt(
         .parent_task(pool)
         .await?
         .ok_or(ApiError::Workspace(WorkspaceError::TaskNotFound))?;
-    let task_uuid_str = task.id.to_string();
-    let first_uuid_section = task_uuid_str.split('-').next().unwrap_or(&task_uuid_str);
 
-    let mut commit_message = format!("{} (vibe-kanban {})", task.title, first_uuid_section);
-
-    // Add description on next line if it exists
-    if let Some(description) = &task.description
-        && !description.trim().is_empty()
-    {
-        commit_message.push_str("\n\n");
-        commit_message.push_str(description);
+    let session = Session::find_by_id(pool, request.session_id)
+        .await?
+        .ok_or(ApiError::Session(SessionError::NotFound))?;
+    if session.workspace_id != workspace.id {
+        return Err(ApiError::Session(SessionError::NotFound));
     }
+
+    if let Some(expected) =
+        ExecutionProcess::latest_executor_profile_for_session(pool, session.id)
+            .await?
+            .map(|p| p.executor.to_string())
+            .or_else(|| session.executor.clone())
+    {
+        if expected != request.executor_profile_id.executor.to_string() {
+            return Err(ApiError::Session(SessionError::ExecutorMismatch {
+                expected,
+                actual: request.executor_profile_id.executor.to_string(),
+            }));
+        }
+    }
+
+    let commit_message = generate_commit_message_via_agent(
+        &deployment,
+        &workspace,
+        &session,
+        &request.executor_profile_id,
+        &workspace.branch,
+        &workspace_repo.target_branch,
+    )
+    .await
+    .unwrap_or_else(|| {
+        tracing::debug!(
+            "Agent did not return commit message, using legacy (task title + description)"
+        );
+        legacy_commit_message(&task)
+    });
 
     let merge_commit_id = deployment.git().merge_changes(
         &repo.path,
