@@ -179,9 +179,12 @@ impl ClaudeCode {
     async fn build_slash_commands_discovery_command_builder(
         &self,
     ) -> Result<CommandBuilder, CommandBuildError> {
-        let mut builder =
-            CommandBuilder::new(base_command(self.claude_code_router.unwrap_or(false)))
-                .params(["-p"]);
+        let mut builder = CommandBuilder::new(base_command(
+            self.claude_code_router.unwrap_or(false),
+            &self.router_version,
+            &self.claude_code_version,
+        ))
+        .params(["-p"]);
 
         builder = builder.extend_params([
             "--verbose",

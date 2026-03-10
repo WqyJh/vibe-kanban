@@ -47,6 +47,14 @@
         "null"
       ]
     },
+    "router_version": {
+      "type": "string",
+      "default": "1.0.66"
+    },
+    "claude_code_version": {
+      "type": "string",
+      "default": "2.1.32"
+    },
     "base_command_override": {
       "title": "Base Command Override",
       "description": "Override the base command with a custom command",

@@ -49,11 +49,26 @@ use crate::{
     stdout_dup::create_stdout_pipe_writer,
 };
 
-fn base_command(claude_code_router: bool) -> &'static str {
+fn default_router_version() -> String {
+    "1.0.66".to_string()
+}
+
+fn default_claude_code_version() -> String {
+    "2.1.32".to_string()
+}
+
+fn base_command(
+    claude_code_router: bool,
+    router_version: &str,
+    claude_code_version: &str,
+) -> String {
     if claude_code_router {
-        "npx -y @musistudio/claude-code-router@1.0.66 code"
+        format!(
+            "npx -y @musistudio/claude-code-router@{} code",
+            router_version
+        )
     } else {
-        "npx -y @anthropic-ai/claude-code@2.1.32"
+        format!("npx -y @anthropic-ai/claude-code@{}", claude_code_version)
     }
 }
 
@@ -76,6 +91,10 @@ pub struct ClaudeCode {
     pub dangerously_skip_permissions: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub disable_api_key: Option<bool>,
+    #[serde(default = "default_router_version")]
+    pub router_version: String,
+    #[serde(default = "default_claude_code_version")]
+    pub claude_code_version: String,
     #[serde(flatten)]
     pub cmd: CmdOverrides,
 
@@ -94,9 +113,12 @@ impl ClaudeCode {
             );
         }
 
-        let mut builder =
-            CommandBuilder::new(base_command(self.claude_code_router.unwrap_or(false)))
-                .params(["-p"]);
+        let mut builder = CommandBuilder::new(base_command(
+            self.claude_code_router.unwrap_or(false),
+            &self.router_version,
+            &self.claude_code_version,
+        ))
+        .params(["-p"]);
 
         let plan = self.plan.unwrap_or(false);
         let approvals = self.approvals.unwrap_or(false);
@@ -2371,6 +2393,8 @@ mod tests {
             model: None,
             append_prompt: AppendPrompt::default(),
             dangerously_skip_permissions: None,
+            router_version: default_router_version(),
+            claude_code_version: default_claude_code_version(),
             cmd: crate::command::CmdOverrides {
                 base_command_override: None,
                 additional_params: None,

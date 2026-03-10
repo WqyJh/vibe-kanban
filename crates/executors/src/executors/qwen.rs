@@ -24,6 +24,8 @@ pub struct QwenCode {
     pub append_prompt: AppendPrompt,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub yolo: Option<bool>,
+    #[serde(default = "default_version")]
+    pub version: String,
     #[serde(flatten)]
     pub cmd: CmdOverrides,
     #[serde(skip)]
@@ -32,9 +34,14 @@ pub struct QwenCode {
     pub approvals: Option<Arc<dyn ExecutorApprovalService>>,
 }
 
+fn default_version() -> String {
+    "0.9.1".to_string()
+}
+
 impl QwenCode {
     fn build_command_builder(&self) -> Result<CommandBuilder, CommandBuildError> {
-        let mut builder = CommandBuilder::new("npx -y @qwen-code/qwen-code@0.9.1");
+        let mut builder =
+            CommandBuilder::new(format!("npx -y @qwen-code/qwen-code@{}", self.version));
 
         if self.yolo.unwrap_or(false) {
             builder = builder.extend_params(["--yolo"]);

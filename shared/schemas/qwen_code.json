@@ -17,6 +17,10 @@
         "null"
       ]
     },
+    "version": {
+      "type": "string",
+      "default": "0.9.1"
+    },
     "base_command_override": {
       "title": "Base Command Override",
       "description": "Override the base command with a custom command",

@@ -34,6 +34,8 @@ pub struct Copilot {
     pub add_dir: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub disable_mcp_server: Option<Vec<String>>,
+    #[serde(default = "default_version")]
+    pub version: String,
     #[serde(flatten)]
     pub cmd: CmdOverrides,
     #[serde(skip)]
@@ -42,9 +44,13 @@ pub struct Copilot {
     pub approvals: Option<Arc<dyn ExecutorApprovalService>>,
 }
 
+fn default_version() -> String {
+    "0.0.403".to_string()
+}
+
 impl Copilot {
     fn build_command_builder(&self) -> Result<CommandBuilder, CommandBuildError> {
-        let mut builder = CommandBuilder::new("npx -y @github/copilot@0.0.403");
+        let mut builder = CommandBuilder::new(format!("npx -y @github/copilot@{}", self.version));
 
         if self.allow_all_tools.unwrap_or(false) {
             builder = builder.extend_params(["--allow-all-tools"]);

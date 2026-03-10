@@ -29,6 +29,11 @@
         "null"
       ]
     },
+    "version": {
+      "description": "OpenCode version (e.g., \"1.2.24\")",
+      "type": "string",
+      "default": "1.2.24"
+    },
     "auto_approve": {
       "description": "Auto-approve agent actions",
       "type": "boolean",

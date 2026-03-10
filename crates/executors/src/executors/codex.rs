@@ -154,6 +154,8 @@ pub struct Codex {
     pub compact_prompt: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub developer_instructions: Option<String>,
+    #[serde(default = "default_version")]
+    pub version: String,
     #[serde(flatten)]
     pub cmd: CmdOverrides,
 
@@ -161,6 +163,10 @@ pub struct Codex {
     #[ts(skip)]
     #[derivative(Debug = "ignore", PartialEq = "ignore")]
     approvals: Option<Arc<dyn ExecutorApprovalService>>,
+}
+
+fn default_version() -> String {
+    "0.98.0".to_string()
 }
 
 #[async_trait]
@@ -278,12 +284,12 @@ impl StandardCodingAgentExecutor for Codex {
 }
 
 impl Codex {
-    pub fn base_command() -> &'static str {
-        "npx -y @openai/codex@0.98.0"
+    pub fn base_command(&self) -> String {
+        format!("npx -y @openai/codex@{}", self.version)
     }
 
     fn build_command_builder(&self) -> Result<CommandBuilder, CommandBuildError> {
-        let mut builder = CommandBuilder::new(Self::base_command());
+        let mut builder = CommandBuilder::new(self.base_command());
         builder = builder.extend_params(["app-server"]);
         if self.oss.unwrap_or(false) {
             builder = builder.extend_params(["--oss"]);
