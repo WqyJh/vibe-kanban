@@ -1,12 +1,7 @@
 name: Remote Deploy Dev
 
+# Only manual trigger; push trigger requires REMOTE_DEPLOYMENT_TOKEN (BloopAI repo).
 on:
-  push:
-    branches:
-      - main 
-    paths:
-      - crates/remote/**
-      - remote-frontend/**
   workflow_dispatch:
 
 jobs:

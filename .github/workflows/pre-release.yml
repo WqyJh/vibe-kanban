@@ -169,6 +169,7 @@ jobs:
           VITE_POSTHOG_API_ENDPOINT: ${{ secrets.POSTHOG_API_ENDPOINT }}
 
       - name: Create Sentry release
+        continue-on-error: true
         uses: getsentry/action-release@v3
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
@@ -322,6 +323,7 @@ jobs:
           VK_SHARED_API_BASE: ${{ secrets.VK_SHARED_API_BASE }}
 
       - name: Setup Sentry CLI
+        continue-on-error: true
         uses: matbour/setup-sentry-cli@v2
         with:
           token: ${{ secrets.SENTRY_AUTH_TOKEN }}
@@ -330,6 +332,7 @@ jobs:
           version: 2.21.2
 
       - name: Upload source maps to Sentry
+        continue-on-error: true
         run: sentry-cli debug-files upload --include-sources target/${{ matrix.target }}/release
 
       - name: Prepare binaries (non-macOS)
