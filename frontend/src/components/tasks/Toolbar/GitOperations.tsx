@@ -17,22 +17,30 @@ import {
 } from '@/components/ui/tooltip.tsx';
 import { useCallback, useMemo, useState } from 'react';
 import type {
+  BaseCodingAgent,
   RepoBranchStatus,
   Merge,
   TaskWithAttemptStatus,
   Workspace,
 } from 'shared/types';
+import type { WorkspaceWithSession } from '@/types/attempt';
 import { ChangeTargetBranchDialog } from '@/components/dialogs/tasks/ChangeTargetBranchDialog';
 import RepoSelector from '@/components/tasks/RepoSelector';
 import { RebaseDialog } from '@/components/dialogs/tasks/RebaseDialog';
 import { CreatePRDialog } from '@/components/dialogs/tasks/CreatePRDialog';
 import { useTranslation } from 'react-i18next';
+import { useUserSystem } from '@/components/ConfigProvider';
+import { useGitOperationsError } from '@/contexts/GitOperationsContext';
 import { useAttemptRepo } from '@/hooks/useAttemptRepo';
 import { useGitOperations } from '@/hooks/useGitOperations';
 import { useRepoBranches } from '@/hooks';
+import { useExecutionProcesses } from '@/hooks/useExecutionProcesses';
+import { useWorkspaceSessions } from '@/hooks/useWorkspaceSessions';
+import { getLatestProfileFromProcesses } from '@/utils/executor';
 
 interface GitOperationsProps {
-  selectedAttempt: Workspace;
+  /** Workspace (attempt); when from old UI may include session so merge uses same session as send */
+  selectedAttempt: Workspace | WorkspaceWithSession;
   task: TaskWithAttemptStatus;
   branchStatus: RepoBranchStatus[] | null;
   branchStatusError?: Error | null;
@@ -53,12 +61,35 @@ function GitOperations({
   layout = 'horizontal',
 }: GitOperationsProps) {
   const { t } = useTranslation('tasks');
-
+  const { setError } = useGitOperationsError();
+  const { config } = useUserSystem();
+  const { sessions, selectedSessionId } = useWorkspaceSessions(
+    selectedAttempt.id
+  );
+  // Prefer attempt.session so merge uses the same session as send (TaskFollowUpSection uses attempt.session)
+  const attemptSessionId = (selectedAttempt as WorkspaceWithSession).session?.id;
+  const mergeSessionId =
+    attemptSessionId ?? selectedSessionId ?? sessions[0]?.id;
+  const { executionProcesses } = useExecutionProcesses(
+    mergeSessionId ?? undefined
+  );
   const { repos, selectedRepoId, setSelectedRepoId } = useAttemptRepo(
     selectedAttempt.id
   );
   const git = useGitOperations(selectedAttempt.id, selectedRepoId ?? undefined);
   const { data: branches = [] } = useRepoBranches(selectedRepoId);
+  // Same executor resolution as send: processes > session metadata > config
+  const mergeExecutorProfileId =
+    getLatestProfileFromProcesses(executionProcesses) ??
+    (sessions[0]?.executor
+      ? {
+          executor: sessions[0].executor as BaseCodingAgent,
+          variant: null as string | null,
+        }
+      : null) ??
+    config?.executor_profile ??
+    null;
+  const canMerge = !!mergeSessionId && !!mergeExecutorProfileId;
   const isChangingTargetBranch = git.states.changeTargetBranchPending;
 
   // Local state for git operations
@@ -189,12 +220,20 @@ function GitOperations({
   };
 
   const performMerge = async () => {
+    const repoId = getSelectedRepoId();
+    if (!repoId) return;
+    if (!mergeSessionId || !mergeExecutorProfileId) {
+      setError(
+        'A session and executor are required to merge. Create a session and set an executor in settings.'
+      );
+      return;
+    }
     try {
       setMerging(true);
-      const repoId = getSelectedRepoId();
-      if (!repoId) return;
       await git.actions.merge({
         repoId,
+        sessionId: mergeSessionId,
+        executorProfileId: mergeExecutorProfileId,
       });
       setMergeSuccess(true);
       setTimeout(() => setMergeSuccess(false), 2000);
@@ -475,6 +514,7 @@ function GitOperations({
             <Button
               onClick={handleMergeClick}
               disabled={
+                !canMerge ||
                 mergeInfo.hasMergedPR ||
                 mergeInfo.hasOpenPR ||
                 merging ||

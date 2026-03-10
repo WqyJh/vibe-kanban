@@ -43,7 +43,9 @@ use serde_json::json;
 use services::services::{
     analytics::AnalyticsContext,
     approvals::{Approvals, executor_approvals::ExecutorApprovalBridge},
-    config::{Config, DEFAULT_COMMIT_REMINDER_PROMPT},
+    config::{
+        Config, DEFAULT_COMMIT_REMINDER_PROMPT, DEFAULT_LINTER_FIX_FOLLOW_UP_PROMPT,
+    },
     container::{ContainerError, ContainerRef, ContainerService},
     diff_stream::{self, DiffStreamHandle},
     image::ImageService,
@@ -584,7 +586,56 @@ impl LocalContainerService {
                             container.finalize_task(&ctx).await;
                         }
                     } else {
-                        container.finalize_task(&ctx).await;
+                        // No user-queued message: if CodingAgent completed but workspace is dirty
+                        // (e.g. commit failed due to linter), auto-queue a follow-up prompt so the
+                        // agent fixes linter complaints and re-commits.
+                        let should_auto_linter_fix = matches!(
+                            ctx.execution_process.run_reason,
+                            ExecutionProcessRunReason::CodingAgent
+                        ) && matches!(
+                            ctx.execution_process.status,
+                            ExecutionProcessStatus::Completed
+                        );
+
+                        if should_auto_linter_fix {
+                            match container.is_container_clean(&ctx.workspace).await {
+                                Ok(false) => {
+                                    match ExecutionProcess::latest_executor_profile_for_session(
+                                        &db.pool,
+                                        ctx.session.id,
+                                    )
+                                    .await
+                                    {
+                                        Ok(Some(executor_profile_id)) => {
+                                            let data = DraftFollowUpData {
+                                                message: DEFAULT_LINTER_FIX_FOLLOW_UP_PROMPT
+                                                    .to_string(),
+                                                executor_profile_id,
+                                            };
+                                            tracing::info!(
+                                                "Workspace has uncommitted changes after CodingAgent run; \
+                                                 starting linter-fix follow-up for session {}",
+                                                ctx.session.id
+                                            );
+                                            if let Err(e) = container
+                                                .start_queued_follow_up(&ctx, &data)
+                                                .await
+                                            {
+                                                tracing::error!(
+                                                    "Failed to start linter-fix follow-up: {}",
+                                                    e
+                                                );
+                                                container.finalize_task(&ctx).await;
+                                            }
+                                        }
+                                        _ => container.finalize_task(&ctx).await,
+                                    }
+                                }
+                                _ => container.finalize_task(&ctx).await,
+                            }
+                        } else {
+                            container.finalize_task(&ctx).await;
+                        }
                     }
                 }
 

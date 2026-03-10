@@ -8,7 +8,7 @@ import {
 } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import type { Workspace } from 'shared/types';
+import type { BaseCodingAgent, Workspace } from 'shared/types';
 import { useOrganizationStore } from '@/stores/useOrganizationStore';
 import { ConfirmDialog } from '@/components/ui-new/dialogs/ConfirmDialog';
 import { buildIssueCreatePath } from '@/lib/routes/projectSidebarRoutes';
@@ -21,8 +21,11 @@ import {
   resolveLabel,
 } from '@/components/ui-new/actions';
 import { getActionLabel } from '@/components/ui-new/actions/useActionVisibility';
+import { useExecutionProcessesContext } from '@/contexts/ExecutionProcessesContext';
 import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
 import { UserContext } from '@/contexts/remote/UserContext';
+import { useUserSystem } from '@/components/ConfigProvider';
+import { getLatestProfileFromProcesses } from '@/utils/executor';
 import { useDevServer } from '@/hooks/useDevServer';
 import { useLogsPanel } from '@/contexts/LogsPanelContext';
 import { useLogStream } from '@/hooks/useLogStream';
@@ -102,8 +105,16 @@ export function ActionsProvider({ children }: ActionsProviderProps) {
   // Get selected organization ID from store (for kanban context)
   const selectedOrgId = useOrganizationStore((s) => s.selectedOrgId);
   // Get workspace context (ActionsProvider is nested inside WorkspaceProvider)
-  const { selectWorkspace, activeWorkspaces, workspaceId, workspace } =
-    useWorkspaceContext();
+  const {
+    selectWorkspace,
+    activeWorkspaces,
+    workspaceId,
+    workspace,
+    selectedSessionId,
+    sessions,
+  } = useWorkspaceContext();
+  const { config } = useUserSystem();
+  const { executionProcessesAll } = useExecutionProcessesContext();
   // Get remote workspaces (optional — not available in VSCodeScope)
   const userCtx = useContext(UserContext);
 
@@ -246,6 +257,31 @@ export function ActionsProvider({ children }: ActionsProviderProps) {
     []
   );
 
+  // Merge uses same executor resolution as send (useExecutorSelection + latestProfileId):
+  // current session processes > session metadata (sessions[0].executor) > config
+  const mergePayload = useMemo(() => {
+    const sessionId = selectedSessionId ?? sessions[0]?.id;
+    const fromProcesses =
+      getLatestProfileFromProcesses(executionProcessesAll);
+    const fromSessionMeta = sessions[0]?.executor
+      ? {
+          executor: sessions[0].executor as BaseCodingAgent,
+          variant: null as string | null,
+        }
+      : null;
+    const executorProfileId =
+      fromProcesses ?? fromSessionMeta ?? config?.executor_profile ?? null;
+    if (sessionId && executorProfileId) {
+      return { sessionId, executorProfileId };
+    }
+    return null;
+  }, [
+    selectedSessionId,
+    sessions,
+    executionProcessesAll,
+    config?.executor_profile,
+  ]);
+
   // Build executor context from hooks
   const executorContext = useMemo<ActionExecutorContext>(() => {
     return {
@@ -272,6 +308,7 @@ export function ActionsProvider({ children }: ActionsProviderProps) {
       kanbanProjectId: projectId,
       projectMutations: projectMutations ?? undefined,
       remoteWorkspaces: userCtx?.workspaces ?? [],
+      mergePayload,
     };
   }, [
     navigate,
@@ -297,6 +334,7 @@ export function ActionsProvider({ children }: ActionsProviderProps) {
     projectId,
     projectMutations,
     userCtx?.workspaces,
+    mergePayload,
   ]);
 
   // Main action executor with centralized target validation and error handling

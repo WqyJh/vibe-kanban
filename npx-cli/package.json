@@ -1,5 +1,5 @@
 {
-  "name": "vibe-kanban",
+  "name": "@wqyjh/vibe-kanban",
   "private": false,
   "version": "0.1.8",
   "main": "index.js",
@@ -7,10 +7,10 @@
     "vibe-kanban": "bin/cli.js"
   },
   "keywords": [],
-  "author": "bloop",
+  "author": "WqyJh",
   "repository": {
     "type": "git",
-    "url": "https://github.com/BloopAI/vibe-kanban"
+    "url": "https://github.com/WqyJh/vibe-kanban"
   },
   "license": "",
   "description": "NPX wrapper around vibe-kanban and vibe-kanban-mcp",

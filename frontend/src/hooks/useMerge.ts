@@ -1,9 +1,14 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import type { ExecutorProfileId } from 'shared/types';
 import { attemptsApi } from '@/lib/api';
 import { repoBranchKeys } from './useRepoBranches';
 
-type MergeParams = {
+export type MergeParams = {
   repoId: string;
+  /** Session for the commit-message agent (same as send/followUp). Required. */
+  sessionId: string;
+  /** Executor for the commit-message agent (same as send/followUp). Required. */
+  executorProfileId: ExecutorProfileId;
 };
 
 export function useMerge(
@@ -18,6 +23,8 @@ export function useMerge(
       if (!attemptId) return Promise.resolve();
       return attemptsApi.merge(attemptId, {
         repo_id: params.repoId,
+        session_id: params.sessionId,
+        executor_profile_id: params.executorProfileId,
       });
     },
     onSuccess: () => {

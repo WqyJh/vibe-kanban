@@ -22,6 +22,10 @@ Use the appropriate CLI tool to update the PR (gh pr edit for GitHub, az repos p
 
 pub const DEFAULT_COMMIT_REMINDER_PROMPT: &str = "There are uncommitted changes. Please stage and commit them now with a descriptive commit message.";
 
+/// Prompt used to auto-queue a follow-up when the workspace is dirty after a CodingAgent run
+/// (e.g. commit failed due to linter). The agent is asked to fix linter issues and re-commit.
+pub const DEFAULT_LINTER_FIX_FOLLOW_UP_PROMPT: &str = "Check the code modified by the linter, fix linter complaints, and re-commit the code.";
+
 #[derive(Debug, Error)]
 pub enum ConfigError {
     #[error(transparent)]
