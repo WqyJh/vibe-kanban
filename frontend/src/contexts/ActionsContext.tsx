@@ -261,8 +261,7 @@ export function ActionsProvider({ children }: ActionsProviderProps) {
   // current session processes > session metadata (sessions[0].executor) > config
   const mergePayload = useMemo(() => {
     const sessionId = selectedSessionId ?? sessions[0]?.id;
-    const fromProcesses =
-      getLatestProfileFromProcesses(executionProcessesAll);
+    const fromProcesses = getLatestProfileFromProcesses(executionProcessesAll);
     const fromSessionMeta = sessions[0]?.executor
       ? {
           executor: sessions[0].executor as BaseCodingAgent,

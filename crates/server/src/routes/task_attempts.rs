@@ -540,7 +540,7 @@ async fn generate_commit_message_via_agent(
         .container()
         .start_execution(
             workspace,
-            &session,
+            session,
             &action,
             &ExecutionProcessRunReason::CodingAgent,
         )
@@ -746,13 +746,12 @@ pub async fn merge_task_attempt(
             .await?
             .map(|p| p.executor.to_string())
             .or_else(|| session.executor.clone())
+        && expected != request.executor_profile_id.executor.to_string()
     {
-        if expected != request.executor_profile_id.executor.to_string() {
-            return Err(ApiError::Session(SessionError::ExecutorMismatch {
-                expected,
-                actual: request.executor_profile_id.executor.to_string(),
-            }));
-        }
+        return Err(ApiError::Session(SessionError::ExecutorMismatch {
+            expected,
+            actual: request.executor_profile_id.executor.to_string(),
+        }));
     }
 
     let commit_message = generate_commit_message_via_agent(

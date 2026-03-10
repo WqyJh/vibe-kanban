@@ -67,7 +67,8 @@ function GitOperations({
     selectedAttempt.id
   );
   // Prefer attempt.session so merge uses the same session as send (TaskFollowUpSection uses attempt.session)
-  const attemptSessionId = (selectedAttempt as WorkspaceWithSession).session?.id;
+  const attemptSessionId = (selectedAttempt as WorkspaceWithSession).session
+    ?.id;
   const mergeSessionId =
     attemptSessionId ?? selectedSessionId ?? sessions[0]?.id;
   const { executionProcesses } = useExecutionProcesses(
