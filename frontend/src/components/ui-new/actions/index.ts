@@ -4,6 +4,7 @@ import type { NavigateFunction } from 'react-router-dom';
 import type { QueryClient } from '@tanstack/react-query';
 import type {
   EditorType,
+  ExecutorProfileId,
   ExecutionProcess,
   Merge,
   Workspace,
@@ -62,7 +63,7 @@ import {
   RIGHT_MAIN_PANEL_MODES,
 } from '@/stores/useUiPreferencesStore';
 
-import { attemptsApi, tasksApi, repoApi } from '@/lib/api';
+import { attemptsApi, repoApi, tasksApi } from '@/lib/api';
 import { bulkUpdateIssues } from '@/lib/remoteApi';
 import { attemptKeys } from '@/hooks/useAttempt';
 import { taskKeys } from '@/hooks/useTask';
@@ -159,6 +160,11 @@ export interface ActionExecutorContext {
   projectMutations?: ProjectMutations;
   // Remote workspaces (from Electric sync via UserContext)
   remoteWorkspaces: RemoteWorkspace[];
+  /** For merge: same session + executor as task send (from WorkspaceContext + config). Null if not available. */
+  mergePayload: {
+    sessionId: string;
+    executorProfileId: ExecutorProfileId;
+  } | null;
 }
 
 // Context for evaluating action visibility and state conditions
@@ -1053,7 +1059,22 @@ export const Actions = {
       });
 
       if (confirmResult === 'confirmed') {
-        await attemptsApi.merge(workspaceId, { repo_id: repoId });
+        const payload = ctx.mergePayload;
+        if (!payload) {
+          await ConfirmDialog.show({
+            title: 'Cannot Merge',
+            message:
+              'A session and executor are required to generate the merge commit message. Create a session in this workspace and ensure an executor is selected in settings.',
+            confirmText: 'OK',
+            showCancelButton: false,
+          });
+          return;
+        }
+        await attemptsApi.merge(workspaceId, {
+          repo_id: repoId,
+          session_id: payload.sessionId,
+          executor_profile_id: payload.executorProfileId,
+        });
         invalidateWorkspaceQueries(ctx.queryClient, workspaceId);
       }
     },
