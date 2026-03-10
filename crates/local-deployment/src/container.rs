@@ -43,9 +43,7 @@ use serde_json::json;
 use services::services::{
     analytics::AnalyticsContext,
     approvals::{Approvals, executor_approvals::ExecutorApprovalBridge},
-    config::{
-        Config, DEFAULT_COMMIT_REMINDER_PROMPT, DEFAULT_LINTER_FIX_FOLLOW_UP_PROMPT,
-    },
+    config::{Config, DEFAULT_COMMIT_REMINDER_PROMPT, DEFAULT_LINTER_FIX_FOLLOW_UP_PROMPT},
     container::{ContainerError, ContainerRef, ContainerService},
     diff_stream::{self, DiffStreamHandle},
     image::ImageService,
@@ -617,9 +615,8 @@ impl LocalContainerService {
                                                  starting linter-fix follow-up for session {}",
                                                 ctx.session.id
                                             );
-                                            if let Err(e) = container
-                                                .start_queued_follow_up(&ctx, &data)
-                                                .await
+                                            if let Err(e) =
+                                                container.start_queued_follow_up(&ctx, &data).await
                                             {
                                                 tracing::error!(
                                                     "Failed to start linter-fix follow-up: {}",
