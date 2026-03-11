@@ -10,7 +10,7 @@ Vibe Kanban is an **orchestration platform for AI coding agents** that helps dev
 
 ## About This Fork
 
-This repository is a **fork of [vibe-kanban](https://github.com/BloopAI/vibe-kanban)**. The upstream project introduced a new UI that we found too complex for our workflow. We prefer the **older UI** for its simplicity and ease of use. This fork maintains a version of Vibe Kanban based on the **legacy UI**, so you can continue using the interface you're familiar with.
+This repository is a **fork of [vibe-kanban](https://github.com/BloopAI/vibe-kanban)**. The upstream project introduced a new UI that we found too complex for our workflow. We prefer the **legacy UI** for its simplicity and ease of use. This fork maintains a version of Vibe Kanban based on the **legacy UI**, so you can continue using the interface you're familiar with.
 
 <Frame>
   <img src="/images/vibe-kanban-screenshot-overview.png"  />
@@ -36,6 +36,8 @@ This repository is a **fork of [vibe-kanban](https://github.com/BloopAI/vibe-kan
 
 This fork adds the following features on top of the legacy UI:
 
+- **ACP-based agents support** — Added 11 new agent executors: auggie, cline, fast_agent, goose, junie, kilo, kimi, mistral_vibe, nova, qoder, stakpak. All agents support MCP configuration.
+- **base_command_override for all agents** — All agents now support `base_command_override` to control the agent version, replacing executor-specific version fields.
 - **Generate merge commit message by agent** — Use an AI agent to draft merge commit messages for you.
 - **Commit after linter changed** — Automatically commit when the linter has made changes to your code.
 

@@ -8,16 +8,11 @@
   </a>
 </p>
 
-<p align="center">Get 10X more out of Claude Code, Gemini CLI, Codex, Amp and other coding agents...</p>
+<p align="center">A fork of Vibe Kanban — an orchestration platform for AI coding agents with the legacy UI and enhanced features.</p>
 <p align="center">
-  <a href="https://www.npmjs.com/package/vibe-kanban"><img alt="npm" src="https://img.shields.io/npm/v/vibe-kanban?style=flat-square" /></a>
-  <a href="https://github.com/BloopAI/vibe-kanban/blob/main/.github/workflows/publish.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/BloopAI/vibe-kanban/.github%2Fworkflows%2Fpublish.yml" /></a>
-  <a href="https://deepwiki.com/BloopAI/vibe-kanban"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
+  <a href="https://www.npmjs.com/package/@wqyjh/vibe-kanban"><img alt="npm" src="https://img.shields.io/npm/v/@wqyjh/vibe-kanban?style=flat-square" /></a>
+  <a href="https://github.com/WqyJh/vibe-kanban/actions/workflows/pre-release.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/WqyJh/vibe-kanban/.github%2Fworkflows%2Fpre-release.yml" /></a>
 </p>
-
-<h1 align="center">
-  <a href="https://jobs.polymer.co/vibe-kanban?source=github"><strong>We're hiring!</strong></a>
-</h1>
 
 ![](frontend/public/vibe-kanban-screenshot-overview.png)
 
@@ -34,12 +29,25 @@ AI coding agents are increasingly writing the world's code and human engineers n
 
 You can watch a video overview [here](https://youtu.be/TFT3KnZOOAk).
 
+## About This Fork
+
+This repository is a **fork of [vibe-kanban](https://github.com/BloopAI/vibe-kanban)**. The upstream project introduced a new UI that we found too complex for our workflow. We prefer the **legacy UI** for its simplicity and ease of use. This fork maintains a version of Vibe Kanban based on the **legacy UI**, so you can continue using the interface you're familiar with.
+
+## New Features in This Fork
+
+This fork adds the following features on top of the legacy UI:
+
+- **ACP-based agents support** — Added 11 new agent executors: auggie, cline, fast_agent, goose, junie, kilo, kimi, mistral_vibe, nova, qoder, stakpak. All agents support MCP configuration.
+- **base_command_override for all agents** — All agents now support `base_command_override` to control the agent version, replacing executor-specific version fields.
+- **Generate merge commit message by agent** — Use an AI agent to draft merge commit messages for you.
+- **Commit after linter changed** — Automatically commit when the linter has made changes to your code.
+
 ## Installation
 
 Make sure you have authenticated with your favourite coding agent. A full list of supported coding agents can be found in the [docs](https://vibekanban.com/docs). Then in your terminal run:
 
 ```bash
-npx vibe-kanban
+npx @wqyjh/vibe-kanban
 ```
 
 ## Documentation
@@ -48,11 +56,11 @@ Please head to the [website](https://vibekanban.com/docs) for the latest documen
 
 ## Support
 
-We use [GitHub Discussions](https://github.com/BloopAI/vibe-kanban/discussions) for feature requests. Please open a discussion to create a feature request. For bugs please open an issue on this repo.
+For bugs and feature requests, please open an issue on this repo. For upstream issues, see [vibe-kanban](https://github.com/BloopAI/vibe-kanban).
 
 ## Contributing
 
-We would prefer that ideas and changes are first raised with the core team via [GitHub Discussions](https://github.com/BloopAI/vibe-kanban/discussions) or [Discord](https://discord.gg/AC4nwVtJM3), where we can discuss implementation details and alignment with the existing roadmap. Please do not open PRs without first discussing your proposal with the team.
+Issues and pull requests are welcome! Feel free to open a PR directly or start a discussion if you want to propose a larger change.
 
 ## Development
 
