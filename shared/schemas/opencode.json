@@ -29,11 +29,6 @@
         "null"
       ]
     },
-    "version": {
-      "description": "OpenCode version (e.g., \"1.2.24\")",
-      "type": "string",
-      "default": "1.2.24"
-    },
     "auto_approve": {
       "description": "Auto-approve agent actions",
       "type": "boolean",
@@ -46,7 +41,7 @@
     },
     "base_command_override": {
       "title": "Base Command Override",
-      "description": "Override the base command with a custom command",
+      "description": "Override the base command (e.g. to pin agent version: npx -y @anthropic-ai/claude-code@3.0.0). Leave empty to use the default.",
       "type": [
         "string",
         "null"

@@ -28,19 +28,13 @@ pub struct Amp {
         description = "Allow all commands to be executed, even if they are not safe."
     )]
     pub dangerously_allow_all: Option<bool>,
-    #[serde(default = "default_version")]
-    pub version: String,
     #[serde(flatten)]
     pub cmd: CmdOverrides,
 }
 
-fn default_version() -> String {
-    "latest".to_string()
-}
-
 impl Amp {
     fn build_command_builder(&self) -> Result<CommandBuilder, CommandBuildError> {
-        let mut builder = CommandBuilder::new(format!("npx -y @sourcegraph/amp@{}", self.version))
+        let mut builder = CommandBuilder::new("npx -y @sourcegraph/amp@latest")
             .params(["--execute", "--stream-json"]);
         if self.dangerously_allow_all.unwrap_or(false) {
             builder = builder.extend_params(["--dangerously-allow-all"]);

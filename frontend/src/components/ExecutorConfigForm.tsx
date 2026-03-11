@@ -12,6 +12,30 @@ import { shadcnTheme } from './rjsf';
 import { BaseCodingAgent } from 'shared/types';
 // Using custom shadcn/ui widgets instead of @rjsf/shadcn theme
 
+/** Default base commands per executor (for placeholder only). Override via base_command_override to pin version. Matches Rust defaults. */
+const DEFAULT_BASE_COMMAND_PLACEHOLDERS: Record<BaseCodingAgent, string> = {
+  [BaseCodingAgent.AMP]: 'npx -y @sourcegraph/amp@latest',
+  [BaseCodingAgent.AUGGIE]: 'npx -y @augmentcode/auggie@0.18.1',
+  [BaseCodingAgent.CLAUDE_CODE]: 'npx -y @anthropic-ai/claude-code@2.1.32',
+  [BaseCodingAgent.CLINE]: 'npx -y cline@2.6.1',
+  [BaseCodingAgent.CODEX]: 'npx -y @openai/codex@0.98.0',
+  [BaseCodingAgent.COPILOT]: 'npx -y @github/copilot@0.0.403',
+  [BaseCodingAgent.CURSOR_AGENT]: 'cursor-agent',
+  [BaseCodingAgent.DROID]: 'droid exec',
+  [BaseCodingAgent.FAST_AGENT]: 'uvx fast-agent-acp==0.5.9',
+  [BaseCodingAgent.GEMINI]: 'npx -y @google/gemini-cli@0.27.0',
+  [BaseCodingAgent.GOOSE]: 'goose',
+  [BaseCodingAgent.JUNIE]: 'npx -y @jetbrains/junie@888.180.0',
+  [BaseCodingAgent.KILO]: 'npx -y @kilocode/cli@7.0.41',
+  [BaseCodingAgent.KIMI]: 'npx -y @kimi-dev/kimi@1.18.0',
+  [BaseCodingAgent.MISTRAL_VIBE]: 'uvx mistral-vibe',
+  [BaseCodingAgent.NOVA]: 'npx -y @compass-ai/nova@1.0.76',
+  [BaseCodingAgent.OPENCODE]: 'npx -y opencode-ai@1.2.24',
+  [BaseCodingAgent.QODER]: 'npx -y @qoder-ai/qodercli@0.1.30',
+  [BaseCodingAgent.QWEN_CODE]: 'npx -y @qwen-code/qwen-code@0.9.1',
+  [BaseCodingAgent.STAKPAK]: 'stakpak',
+};
+
 interface ExecutorConfigFormProps {
   executor: BaseCodingAgent;
   value: unknown;
@@ -64,8 +88,11 @@ export function ExecutorConfigForm({
       env: {
         'ui:field': 'KeyValueField',
       },
+      base_command_override: {
+        'ui:placeholder': DEFAULT_BASE_COMMAND_PLACEHOLDERS[executor],
+      },
     }),
-    []
+    [executor]
   );
 
   // Pass the env update handler via formContext

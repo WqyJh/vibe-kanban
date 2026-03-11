@@ -21,8 +21,10 @@ use crate::{
     command::CommandBuildError,
     env::ExecutionEnv,
     executors::{
-        amp::Amp, claude::ClaudeCode, codex::Codex, copilot::Copilot, cursor::CursorAgent,
-        droid::Droid, gemini::Gemini, opencode::Opencode, qwen::QwenCode,
+        amp::Amp, auggie::Auggie, claude::ClaudeCode, cline::Cline, codex::Codex, copilot::Copilot,
+        cursor::CursorAgent, droid::Droid, fast_agent::FastAgent, gemini::Gemini, goose::Goose,
+        junie::Junie, kilo::Kilo, kimi::Kimi, mistral_vibe::MistralVibe, nova::Nova,
+        opencode::Opencode, qoder::Qoder, qwen::QwenCode, stakpak::Stakpak,
     },
     logs::utils::patch,
     mcp_config::McpConfig,
@@ -30,16 +32,27 @@ use crate::{
 
 pub mod acp;
 pub mod amp;
+pub mod auggie;
 pub mod claude;
+pub mod cline;
 pub mod codex;
 pub mod copilot;
 pub mod cursor;
 pub mod droid;
+pub mod fast_agent;
 pub mod gemini;
+pub mod goose;
+pub mod junie;
+pub mod kilo;
+pub mod kimi;
+pub mod mistral_vibe;
+pub mod nova;
 pub mod opencode;
 #[cfg(feature = "qa-mode")]
 pub mod qa_mock;
+pub mod qoder;
 pub mod qwen;
+pub mod stakpak;
 pub mod utils;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
@@ -107,7 +120,18 @@ pub enum ExecutorError {
 pub enum CodingAgent {
     ClaudeCode,
     Amp,
+    Auggie,
+    Cline,
+    FastAgent,
     Gemini,
+    Goose,
+    Junie,
+    Kilo,
+    Kimi,
+    MistralVibe,
+    Nova,
+    Qoder,
+    Stakpak,
     Codex,
     Opencode,
     #[serde(alias = "CURSOR")]
@@ -187,7 +211,20 @@ impl CodingAgent {
                 BaseAgentCapability::SetupHelper,
                 BaseAgentCapability::ContextUsage,
             ],
-            Self::Amp(_) | Self::Gemini(_) | Self::QwenCode(_) => {
+            Self::Amp(_)
+            | Self::Gemini(_)
+            | Self::QwenCode(_)
+            | Self::Auggie(_)
+            | Self::Goose(_)
+            | Self::Kimi(_)
+            | Self::MistralVibe(_)
+            | Self::Qoder(_)
+            | Self::Cline(_)
+            | Self::Junie(_)
+            | Self::Kilo(_)
+            | Self::Stakpak(_)
+            | Self::FastAgent(_)
+            | Self::Nova(_) => {
                 vec![BaseAgentCapability::SessionFork]
             }
             Self::CursorAgent(_) => vec![BaseAgentCapability::SetupHelper],

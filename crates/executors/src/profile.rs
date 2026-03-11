@@ -64,7 +64,9 @@ pub struct ExecutorProfileId {
     #[serde(alias = "profile", deserialize_with = "de_base_coding_agent_kebab")]
     // Backwards compatibility with ProfileVariantIds, esp stored in DB under ExecutorAction
     pub executor: BaseCodingAgent,
-    /// Optional variant name (e.g., "PLAN", "ROUTER")
+    /// Configuration variant name (e.g., "DEFAULT", "PLAN", "ROUTER"). Selects which
+    /// named profile to use for this executor—not the agent/CLI version (use
+    /// base_command_override in the executor config to pin or change agent version).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub variant: Option<String>,
 }

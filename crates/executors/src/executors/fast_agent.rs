@@ -19,21 +19,13 @@ use crate::{
 
 #[derive(Derivative, Clone, Serialize, Deserialize, TS, JsonSchema)]
 #[derivative(Debug, PartialEq)]
-pub struct Copilot {
+pub struct FastAgent {
     #[serde(default)]
     pub append_prompt: AppendPrompt,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub model: Option<String>,
+    pub variant: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub allow_all_tools: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub allow_tool: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub deny_tool: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub add_dir: Option<Vec<String>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub disable_mcp_server: Option<Vec<String>>,
+    pub yolo: Option<bool>,
     #[serde(flatten)]
     pub cmd: CmdOverrides,
     #[serde(skip)]
@@ -42,46 +34,22 @@ pub struct Copilot {
     pub approvals: Option<Arc<dyn ExecutorApprovalService>>,
 }
 
-impl Copilot {
+impl FastAgent {
     fn build_command_builder(&self) -> Result<CommandBuilder, CommandBuildError> {
-        let mut builder = CommandBuilder::new("npx -y @github/copilot@0.0.403");
+        let version = self.variant.as_deref().unwrap_or("0.5.9");
+        let mut builder = CommandBuilder::new(format!("uvx fast-agent-acp=={}", version));
 
-        if self.allow_all_tools.unwrap_or(false) {
-            builder = builder.extend_params(["--allow-all-tools"]);
+        if self.yolo.unwrap_or(false) {
+            builder = builder.extend_params(["--yolo"]);
         }
 
-        if let Some(model) = &self.model {
-            builder = builder.extend_params(["--model", model]);
-        }
-
-        if let Some(tool) = &self.allow_tool {
-            builder = builder.extend_params(["--allow-tool", tool]);
-        }
-
-        if let Some(tool) = &self.deny_tool {
-            builder = builder.extend_params(["--deny-tool", tool]);
-        }
-
-        if let Some(dirs) = &self.add_dir {
-            for dir in dirs {
-                builder = builder.extend_params(["--add-dir", dir]);
-            }
-        }
-
-        if let Some(servers) = &self.disable_mcp_server {
-            for server in servers {
-                builder = builder.extend_params(["--disable-mcp-server", server]);
-            }
-        }
-
-        builder = builder.extend_params(["--acp"]);
-
+        builder = builder.extend_params(["-x"]);
         apply_overrides(builder, &self.cmd)
     }
 }
 
 #[async_trait]
-impl StandardCodingAgentExecutor for Copilot {
+impl StandardCodingAgentExecutor for FastAgent {
     fn use_approvals(&mut self, approvals: Arc<dyn ExecutorApprovalService>) {
         self.approvals = Some(approvals);
     }
@@ -92,17 +60,22 @@ impl StandardCodingAgentExecutor for Copilot {
         prompt: &str,
         env: &ExecutionEnv,
     ) -> Result<SpawnedChild, ExecutorError> {
-        let harness = AcpAgentHarness::new();
+        let harness = AcpAgentHarness::with_session_namespace("fast_agent_sessions");
         let combined_prompt = self.append_prompt.combine_prompt(prompt);
-        let copilot_command = self.build_command_builder()?.build_initial()?;
+        let fast_agent_command = self.build_command_builder()?.build_initial()?;
+        let approvals = if self.yolo.unwrap_or(false) {
+            None
+        } else {
+            self.approvals.clone()
+        };
         harness
             .spawn_with_command(
                 current_dir,
                 combined_prompt,
-                copilot_command,
+                fast_agent_command,
                 env,
                 &self.cmd,
-                self.approvals.clone(),
+                approvals,
             )
             .await
     }
@@ -115,18 +88,23 @@ impl StandardCodingAgentExecutor for Copilot {
         _reset_to_message_id: Option<&str>,
         env: &ExecutionEnv,
     ) -> Result<SpawnedChild, ExecutorError> {
-        let harness = AcpAgentHarness::new();
+        let harness = AcpAgentHarness::with_session_namespace("fast_agent_sessions");
         let combined_prompt = self.append_prompt.combine_prompt(prompt);
-        let copilot_command = self.build_command_builder()?.build_follow_up(&[])?;
+        let fast_agent_command = self.build_command_builder()?.build_follow_up(&[])?;
+        let approvals = if self.yolo.unwrap_or(false) {
+            None
+        } else {
+            self.approvals.clone()
+        };
         harness
             .spawn_follow_up_with_command(
                 current_dir,
                 combined_prompt,
                 session_id,
-                copilot_command,
+                fast_agent_command,
                 env,
                 &self.cmd,
-                self.approvals.clone(),
+                approvals,
             )
             .await
     }
@@ -136,7 +114,7 @@ impl StandardCodingAgentExecutor for Copilot {
     }
 
     fn default_mcp_config_path(&self) -> Option<std::path::PathBuf> {
-        dirs::home_dir().map(|home| home.join(".copilot").join("mcp-config.json"))
+        dirs::home_dir().map(|home| home.join(".fast_agent").join("settings.json"))
     }
 
     fn get_availability_info(&self) -> AvailabilityInfo {
@@ -146,7 +124,7 @@ impl StandardCodingAgentExecutor for Copilot {
             .unwrap_or(false);
 
         let installation_indicator_found = dirs::home_dir()
-            .map(|home| home.join(".copilot").join("config.json").exists())
+            .map(|home| home.join(".fast_agent").join("installation_id").exists())
             .unwrap_or(false);
 
         if mcp_config_found || installation_indicator_found {

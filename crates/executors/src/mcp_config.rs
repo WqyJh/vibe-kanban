@@ -397,7 +397,20 @@ impl CodingAgent {
         use Adapter::*;
 
         let adapter = match self {
-            CodingAgent::ClaudeCode(_) | CodingAgent::Amp(_) | CodingAgent::Droid(_) => Passthrough,
+            CodingAgent::ClaudeCode(_)
+            | CodingAgent::Amp(_)
+            | CodingAgent::Droid(_)
+            | CodingAgent::Auggie(_)
+            | CodingAgent::Goose(_)
+            | CodingAgent::Kimi(_)
+            | CodingAgent::MistralVibe(_)
+            | CodingAgent::Qoder(_)
+            | CodingAgent::Cline(_)
+            | CodingAgent::Junie(_)
+            | CodingAgent::Kilo(_)
+            | CodingAgent::Stakpak(_)
+            | CodingAgent::FastAgent(_)
+            | CodingAgent::Nova(_) => Passthrough,
             CodingAgent::QwenCode(_) | CodingAgent::Gemini(_) => Gemini,
             CodingAgent::CursorAgent(_) => Cursor,
             CodingAgent::Codex(_) => Codex,

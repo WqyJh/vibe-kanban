@@ -43,9 +43,6 @@ pub struct Opencode {
     pub variant: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "mode")]
     pub agent: Option<String>,
-    /// OpenCode version (e.g., "1.2.24")
-    #[serde(default = "default_version")]
-    pub version: String,
     /// Auto-approve agent actions
     #[serde(default = "default_to_true")]
     pub auto_approve: bool,
@@ -81,10 +78,11 @@ impl Drop for OpencodeServer {
 
 type ServerPassword = String;
 
+const DEFAULT_OPENCODE_BASE: &str = "npx -y opencode-ai@1.2.24";
+
 impl Opencode {
     fn build_command_builder(&self) -> Result<CommandBuilder, CommandBuildError> {
-        let version = &self.version;
-        let builder = CommandBuilder::new(format!("npx -y opencode-ai@{version}"))
+        let builder = CommandBuilder::new(DEFAULT_OPENCODE_BASE)
             // Pass hostname/port as separate args so OpenCode treats them as explicitly set
             // (it checks `process.argv.includes(\"--port\")` / `\"--hostname\"`).
             .extend_params(["serve", "--hostname", "127.0.0.1", "--port", "0"]);
@@ -455,10 +453,6 @@ impl StandardCodingAgentExecutor for Opencode {
 
 fn default_to_true() -> bool {
     true
-}
-
-fn default_version() -> String {
-    "1.2.24".to_string()
 }
 
 fn setup_permissions_env(auto_approve: bool, env: &ExecutionEnv) -> ExecutionEnv {

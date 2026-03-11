@@ -26,8 +26,6 @@ pub struct Gemini {
     pub model: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub yolo: Option<bool>,
-    #[serde(default = "default_version")]
-    pub version: String,
     #[serde(flatten)]
     pub cmd: CmdOverrides,
     #[serde(skip)]
@@ -36,14 +34,9 @@ pub struct Gemini {
     pub approvals: Option<Arc<dyn ExecutorApprovalService>>,
 }
 
-fn default_version() -> String {
-    "0.27.0".to_string()
-}
-
 impl Gemini {
     fn build_command_builder(&self) -> Result<CommandBuilder, CommandBuildError> {
-        let mut builder =
-            CommandBuilder::new(format!("npx -y @google/gemini-cli@{}", self.version));
+        let mut builder = CommandBuilder::new("npx -y @google/gemini-cli@0.27.0");
 
         if let Some(model) = &self.model {
             builder = builder.extend_params(["--model", model.as_str()]);

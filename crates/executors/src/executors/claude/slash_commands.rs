@@ -181,8 +181,6 @@ impl ClaudeCode {
     ) -> Result<CommandBuilder, CommandBuildError> {
         let mut builder = CommandBuilder::new(base_command(
             self.claude_code_router.unwrap_or(false),
-            &self.router_version,
-            &self.claude_code_version,
         ))
         .params(["-p"]);
 

@@ -200,9 +200,14 @@ impl LogState {
         let Some(event) = SdkEvent::parse(raw) else {
             let raw_text = raw.to_string();
             if !raw_text.trim().is_empty() {
-                self.add_normalized_entry(system_message(format!(
-                    "Unrecognized OpenCode SDK event: {raw_text}"
-                )));
+                // Ignore ACP events that slip through - they have a "type" field but no "event" field
+                // These come from other agents using the ACP protocol, not OpenCode's SDK
+                let is_acp_event = raw.get("type").is_some() && raw.get("event").is_none();
+                if !is_acp_event {
+                    self.add_normalized_entry(system_message(format!(
+                        "Unrecognized OpenCode SDK event: {raw_text}"
+                    )));
+                }
             }
             return;
         };
