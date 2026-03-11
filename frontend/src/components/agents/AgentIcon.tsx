@@ -38,6 +38,28 @@ export function getAgentName(
       return 'Copilot';
     case BaseCodingAgent.DROID:
       return 'Droid';
+    case BaseCodingAgent.AUGGIE:
+      return 'Auggie';
+    case BaseCodingAgent.CLINE:
+      return 'Cline';
+    case BaseCodingAgent.FAST_AGENT:
+      return 'Fast Agent';
+    case BaseCodingAgent.GOOSE:
+      return 'Goose';
+    case BaseCodingAgent.JUNIE:
+      return 'Junie';
+    case BaseCodingAgent.KILO:
+      return 'Kilo';
+    case BaseCodingAgent.KIMI:
+      return 'Kimi';
+    case BaseCodingAgent.MISTRAL_VIBE:
+      return 'Mistral Vibe';
+    case BaseCodingAgent.NOVA:
+      return 'Nova';
+    case BaseCodingAgent.QODER:
+      return 'Qoder';
+    case BaseCodingAgent.STAKPAK:
+      return 'Stakpak';
   }
 }
 
