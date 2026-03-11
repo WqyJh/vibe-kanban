@@ -83,8 +83,41 @@ export function AgentIcon({ agent, className = 'h-4 w-4' }: AgentIconProps) {
     case BaseCodingAgent.AMP:
       iconPath = `/agents/amp${suffix}.svg`;
       break;
+    case BaseCodingAgent.AUGGIE:
+      iconPath = `/agents/auggie${suffix}.svg`;
+      break;
+    case BaseCodingAgent.CLINE:
+      iconPath = `/agents/cline${suffix}.svg`;
+      break;
+    case BaseCodingAgent.FAST_AGENT:
+      iconPath = `/agents/fast-agent${suffix}.svg`;
+      break;
     case BaseCodingAgent.GEMINI:
       iconPath = `/agents/gemini${suffix}.svg`;
+      break;
+    case BaseCodingAgent.GOOSE:
+      iconPath = `/agents/goose${suffix}.svg`;
+      break;
+    case BaseCodingAgent.JUNIE:
+      iconPath = `/agents/junie${suffix}.svg`;
+      break;
+    case BaseCodingAgent.KILO:
+      iconPath = `/agents/kilo${suffix}.svg`;
+      break;
+    case BaseCodingAgent.KIMI:
+      iconPath = `/agents/kimi${suffix}.svg`;
+      break;
+    case BaseCodingAgent.MISTRAL_VIBE:
+      iconPath = `/agents/mistral${suffix}.svg`;
+      break;
+    case BaseCodingAgent.NOVA:
+      iconPath = `/agents/nova${suffix}.svg`;
+      break;
+    case BaseCodingAgent.QODER:
+      iconPath = `/agents/qoder${suffix}.svg`;
+      break;
+    case BaseCodingAgent.STAKPAK:
+      iconPath = `/agents/stakpak${suffix}.svg`;
       break;
     case BaseCodingAgent.CODEX:
       iconPath = `/agents/codex${suffix}.svg`;
@@ -104,18 +137,6 @@ export function AgentIcon({ agent, className = 'h-4 w-4' }: AgentIconProps) {
     case BaseCodingAgent.DROID:
       iconPath = `/agents/droid${suffix}.svg`;
       break;
-    case BaseCodingAgent.AUGGIE:
-    case BaseCodingAgent.CLINE:
-    case BaseCodingAgent.FAST_AGENT:
-    case BaseCodingAgent.GOOSE:
-    case BaseCodingAgent.JUNIE:
-    case BaseCodingAgent.KILO:
-    case BaseCodingAgent.KIMI:
-    case BaseCodingAgent.MISTRAL_VIBE:
-    case BaseCodingAgent.NOVA:
-    case BaseCodingAgent.QODER:
-    case BaseCodingAgent.STAKPAK:
-      return null;
   }
 
   return <img src={iconPath} alt={agentName} className={className} />;
