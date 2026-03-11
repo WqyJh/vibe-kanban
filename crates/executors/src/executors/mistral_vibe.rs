@@ -39,10 +39,7 @@ const DEFAULT_MISTRAL_VIBE_BASE: &str = "uvx mistral-vibe";
 
 impl MistralVibe {
     fn build_command_builder(&self) -> Result<CommandBuilder, CommandBuildError> {
-        let binary = self
-            .variant
-            .as_deref()
-            .unwrap_or(DEFAULT_MISTRAL_VIBE_BASE);
+        let binary = self.variant.as_deref().unwrap_or(DEFAULT_MISTRAL_VIBE_BASE);
         let mut builder = CommandBuilder::new(binary.to_string());
 
         if self.yolo.unwrap_or(false) {
