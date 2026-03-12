@@ -20,6 +20,7 @@ import {
   CheckSquare,
   ChevronDown,
   Clock,
+  Gauge,
   Hammer,
   Edit,
   Eye,
@@ -737,13 +738,8 @@ function DisplayConversationEntry({
   const isUserMessage = entryType.type === 'user_message';
   const isUserFeedback = entryType.type === 'user_feedback';
   const isLoading = entryType.type === 'loading';
-  const isTokenUsage = entryType.type === 'token_usage_info';
   const isFileEdit = (a: ActionType): a is FileEditAction =>
     a.action === 'file_edit';
-
-  if (isTokenUsage) {
-    return null;
-  }
 
   if (isUserMessage) {
     return (
@@ -924,6 +920,49 @@ function DisplayConversationEntry({
         <span className="font-medium">
           {formatDuration(entry.entry_type.duration_seconds)}
         </span>
+      </div>
+    );
+  }
+
+  if (entry.entry_type.type === 'token_usage_info') {
+    const { total_tokens, model_context_window } = entry.entry_type;
+    if (model_context_window === 0) return null;
+
+    const percentage = Math.min(
+      100,
+      (total_tokens / model_context_window) * 100
+    );
+    const formatTokens = (n: number) => {
+      if (n >= 1_000_000) {
+        const m = n / 1_000_000;
+        return m % 1 === 0 ? `${m}M` : `${m.toFixed(1)}M`;
+      }
+      if (n >= 1_000) return `${Math.round(n / 1_000)}K`;
+      return n.toString();
+    };
+
+    const barColor =
+      percentage >= 90
+        ? 'bg-red-500'
+        : percentage >= 75
+          ? 'bg-amber-500'
+          : percentage >= 50
+            ? 'bg-blue-500'
+            : 'bg-green-500';
+
+    return (
+      <div className="px-4 py-1.5 text-xs text-muted-foreground flex items-center gap-2">
+        <Gauge className="h-3 w-3" />
+        <span className="font-medium">
+          {formatTokens(total_tokens)} / {formatTokens(model_context_window)}
+        </span>
+        <div className="flex-1 max-w-24 h-1.5 bg-muted rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all ${barColor}`}
+            style={{ width: `${percentage}%` }}
+          />
+        </div>
+        <span className="opacity-70">{Math.round(percentage)}%</span>
       </div>
     );
   }
