@@ -11,6 +11,7 @@ import {
 } from 'shared/types';
 import type { WorkspaceWithSession } from '@/types/attempt';
 import { parseDiffStats } from '@/utils/diffStatsParser';
+import { parseThinkTags } from '@/utils/thinkTagParser';
 import {
   usePersistedExpanded,
   type PersistKey,
@@ -601,7 +602,8 @@ function UserMessageEntry({
 }
 
 /**
- * Assistant message entry with expandable content
+ * Assistant message entry with expandable content.
+ * Parses <think> tags to render thinking content separately.
  */
 function AssistantMessageEntry({
   content,
@@ -610,7 +612,28 @@ function AssistantMessageEntry({
   content: string;
   workspaceId: string | undefined;
 }) {
-  return <ChatAssistantMessage content={content} workspaceId={workspaceId} />;
+  const { thinkingBlocks, remainingContent } = useMemo(
+    () => parseThinkTags(content),
+    [content]
+  );
+
+  return (
+    <>
+      {thinkingBlocks.map((thinkContent, idx) => (
+        <ChatThinkingMessage
+          key={idx}
+          content={thinkContent}
+          taskAttemptId={workspaceId}
+        />
+      ))}
+      {remainingContent && (
+        <ChatAssistantMessage
+          content={remainingContent}
+          workspaceId={workspaceId}
+        />
+      )}
+    </>
+  );
 }
 
 /**

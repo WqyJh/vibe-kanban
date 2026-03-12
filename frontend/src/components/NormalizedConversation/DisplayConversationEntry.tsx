@@ -45,6 +45,7 @@ import {
   type ScriptType,
 } from '@/components/dialogs/scripts/ScriptFixerDialog';
 import { useAttemptRepo } from '@/hooks/useAttemptRepo';
+import { parseThinkTags } from '@/utils/thinkTagParser';
 
 type Props = {
   entry: NormalizedEntry | ProcessStartPayload;
@@ -981,6 +982,45 @@ function DisplayConversationEntry({
         />
       </div>
     );
+  }
+
+  // For assistant messages, parse <think> tags to render thinking content separately
+  if (
+    entry.entry_type.type === 'assistant_message' &&
+    isNormalizedEntry(entry)
+  ) {
+    const { thinkingBlocks, remainingContent } = parseThinkTags(entry.content);
+
+    if (thinkingBlocks.length > 0) {
+      return (
+        <div className="px-4 py-2 text-sm space-y-2">
+          {thinkingBlocks.map((thinkContent, idx) => (
+            <div
+              key={idx}
+              className="flex items-start gap-1.5 opacity-60 whitespace-pre-wrap break-words"
+            >
+              <Brain className="h-3 w-3 shrink-0 mt-0.5" />
+              <WYSIWYGEditor
+                value={thinkContent}
+                disabled
+                className="whitespace-pre-wrap break-words flex flex-col gap-1 font-light text-sm"
+                taskAttemptId={taskAttempt?.id}
+              />
+            </div>
+          ))}
+          {remainingContent && (
+            <div className={getContentClassName(entryType)}>
+              <WYSIWYGEditor
+                value={remainingContent}
+                disabled
+                className="whitespace-pre-wrap break-words flex flex-col gap-1 font-light"
+                taskAttemptId={taskAttempt?.id}
+              />
+            </div>
+          )}
+        </div>
+      );
+    }
   }
 
   return (
