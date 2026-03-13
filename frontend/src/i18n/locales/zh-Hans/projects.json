@@ -22,5 +22,14 @@
   "projectNotFound": "您查找的项目不存在或已被删除。",
   "viewProject": "查看项目",
   "openInIDE": "在 IDE 中打开",
-  "createdDate": "创建于 {{date}}"
+  "createdDate": "创建于 {{date}}",
+  "view": {
+    "grid": "网格视图",
+    "order": "排序项目"
+  },
+  "order": {
+    "title": "项目排序",
+    "description": "拖放项目以更改其显示顺序",
+    "saveError": "保存项目顺序失败"
+  }
 }
