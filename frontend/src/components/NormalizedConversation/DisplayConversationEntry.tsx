@@ -37,8 +37,11 @@ import RawLogText from '../common/RawLogText';
 import UserMessage from './UserMessage';
 import PendingApprovalEntry from './PendingApprovalEntry';
 import { NextActionCard } from './NextActionCard';
+import { AskUserQuestionBanner } from '@/components/AskUserQuestionBanner';
 import { cn } from '@/lib/utils';
 import { useRetryUi } from '@/contexts/RetryUiContext';
+import { useApprovalMutation } from '@/hooks/useApprovalMutation';
+import { useApprovals } from '@/hooks/useApprovals';
 import { Button } from '@/components/ui/button';
 import {
   ScriptFixerDialog,
@@ -860,6 +863,17 @@ function DisplayConversationEntry({
         );
       }
 
+      // AskUserQuestion - render interactive question banner
+      if (toolEntry.action_type.action === 'ask_user_question') {
+        return (
+          <AskUserQuestionContent
+            questions={toolEntry.action_type.questions}
+            approvalId={isPendingApproval ? status.approval_id : null}
+            executionProcessId={executionProcessId}
+          />
+        );
+      }
+
       // Script entries (Setup Script, Cleanup Script, Tool Install Script)
       if (
         toolEntry.action_type.action === 'command_run' &&
@@ -1083,5 +1097,37 @@ function DisplayConversationEntry({
     </div>
   );
 }
+
+const AskUserQuestionContent: React.FC<{
+  questions: Extract<ActionType, { action: 'ask_user_question' }>['questions'];
+  approvalId: string | null;
+  executionProcessId?: string;
+}> = ({ questions, approvalId, executionProcessId }) => {
+  const { answer, isAnswering, answerError } = useApprovalMutation();
+  const { getPendingById } = useApprovals();
+  const approvalInfo = approvalId ? getPendingById(approvalId) : null;
+
+  const handleSubmitAnswers = useCallback(
+    (answers: { question: string; answer: string[] }[]) => {
+      if (!approvalId || !executionProcessId) return;
+      answer({
+        approvalId,
+        executionProcessId,
+        answers,
+      });
+    },
+    [answer, approvalId, executionProcessId]
+  );
+
+  return (
+    <AskUserQuestionBanner
+      questions={questions}
+      onSubmitAnswers={handleSubmitAnswers}
+      isSubmitting={isAnswering}
+      isTimedOut={!approvalInfo && approvalId !== null}
+      error={answerError?.message ?? null}
+    />
+  );
+};
 
 export default DisplayConversationEntryMaxWidth;
