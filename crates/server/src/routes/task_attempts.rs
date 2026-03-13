@@ -553,6 +553,7 @@ async fn generate_commit_message_via_agent(
     const POLL_INTERVAL: Duration = Duration::from_millis(500);
     const TIMEOUT: Duration = Duration::from_secs(90);
     let deadline = std::time::Instant::now() + TIMEOUT;
+    let mut timed_out = false;
     while std::time::Instant::now() < deadline {
         tokio::time::sleep(POLL_INTERVAL).await;
         let Some(ep) = ExecutionProcess::find_by_id(pool, execution_process.id)
@@ -565,6 +566,36 @@ async fn generate_commit_message_via_agent(
         if ep.status != ExecutionProcessStatus::Running {
             break;
         }
+    }
+    // Check if the process is still running after the timeout
+    if let Some(ep) = ExecutionProcess::find_by_id(pool, execution_process.id)
+        .await
+        .ok()
+        .flatten()
+        && ep.status == ExecutionProcessStatus::Running
+    {
+        timed_out = true;
+        tracing::debug!(
+            "Commit message agent timed out after {}s, stopping execution process {}",
+            TIMEOUT.as_secs(),
+            execution_process.id
+        );
+        if let Err(e) = deployment
+            .container()
+            .stop_execution(&ep, ExecutionProcessStatus::Killed)
+            .await
+        {
+            tracing::error!(
+                "Failed to stop timed-out commit message agent {}: {}",
+                execution_process.id,
+                e
+            );
+        }
+    }
+
+    // If we timed out, don't wait for the summary - return None immediately
+    if timed_out {
+        return None;
     }
 
     let turn = CodingAgentTurn::find_by_execution_process_id(pool, execution_process.id)
