@@ -412,5 +412,13 @@
     "streamsAffected_other": "{{count}}件のストリームが影響を受けています",
     "status": "(ステータス {{status}})",
     "refreshPage": "ページを更新"
+  },
+  "askQuestion": {
+    "title": "エージェントが質問しています",
+    "selectMultiple": "複数選択",
+    "confirmSelection": "選択を確定",
+    "submitting": "回答を送信中...",
+    "answeredCount": "{{count}}件の質問に回答済み",
+    "answeredCount_other": "{{count}}件の質問に回答済み"
   }
 }

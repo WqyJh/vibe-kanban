@@ -1,7 +1,6 @@
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
-use workspace_utils::approvals::ApprovalStatus;
+use workspace_utils::approvals::{ApprovalStatus, QuestionStatus};
 
 pub mod plain_text_processor;
 pub mod stderr_processor;
@@ -101,6 +100,17 @@ pub enum NormalizedEntryType {
         completed_at: String,
         duration_seconds: f64,
     },
+    UserAnsweredQuestions {
+        answers: Vec<AnsweredQuestion>,
+    },
+}
+
+/// A question–answer pair from a completed AskUserQuestion interaction.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct AnsweredQuestion {
+    pub question: String,
+    pub answer: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -153,8 +163,6 @@ pub enum ToolStatus {
     },
     PendingApproval {
         approval_id: String,
-        requested_at: DateTime<Utc>,
-        timeout_at: DateTime<Utc>,
     },
     TimedOut,
 }
@@ -167,7 +175,14 @@ impl ToolStatus {
                 reason: reason.clone(),
             }),
             ApprovalStatus::TimedOut => Some(ToolStatus::TimedOut),
-            ApprovalStatus::Pending => None, // this should not happen
+            ApprovalStatus::Pending => None,
+        }
+    }
+
+    pub fn from_question_status(status: &QuestionStatus) -> Self {
+        match status {
+            QuestionStatus::Answered { .. } => ToolStatus::Success,
+            QuestionStatus::TimedOut => ToolStatus::TimedOut,
         }
     }
 }
@@ -226,9 +241,31 @@ pub enum ActionType {
         todos: Vec<TodoItem>,
         operation: String,
     },
+    AskUserQuestion {
+        questions: Vec<AskUserQuestionItem>,
+    },
     Other {
         description: String,
     },
+}
+
+/// A single question in an AskUserQuestion tool call.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct AskUserQuestionItem {
+    pub question: String,
+    pub header: String,
+    pub options: Vec<AskUserQuestionOption>,
+    #[serde(rename = "multiSelect")]
+    pub multi_select: bool,
+}
+
+/// An option for an AskUserQuestion question.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct AskUserQuestionOption {
+    pub label: String,
+    pub description: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]

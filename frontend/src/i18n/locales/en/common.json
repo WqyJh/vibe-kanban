@@ -412,5 +412,13 @@
     "streamsAffected_other": "{{count}} streams affected",
     "status": "(status {{status}})",
     "refreshPage": "Refresh Page"
+  },
+  "askQuestion": {
+    "title": "Agent is asking a question",
+    "selectMultiple": "select multiple",
+    "confirmSelection": "Confirm selection",
+    "submitting": "Submitting answers...",
+    "answeredCount": "Answered {{count}} question",
+    "answeredCount_other": "Answered {{count}} questions"
   }
 }

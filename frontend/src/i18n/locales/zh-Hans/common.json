@@ -412,5 +412,13 @@
     "streamsAffected_other": "{{count}} 个数据流受影响",
     "status": "(状态 {{status}})",
     "refreshPage": "刷新页面"
+  },
+  "askQuestion": {
+    "title": "代理正在提问",
+    "selectMultiple": "多选",
+    "confirmSelection": "确认选择",
+    "submitting": "正在提交回答...",
+    "answeredCount": "已回答{{count}}个问题",
+    "answeredCount_other": "已回答{{count}}个问题"
   }
 }

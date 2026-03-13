@@ -183,7 +183,6 @@ export function SessionChatBoxContainer(props: SessionChatBoxContainerProps) {
         >;
         return {
           approvalId: status.approval_id,
-          timeoutAt: status.timeout_at,
           executionProcessId: entry.executionProcessId,
         };
       }
@@ -660,9 +659,8 @@ export function SessionChatBoxContainer(props: SessionChatBoxContainerProps) {
   ]);
 
   // Check if approval is timed out
-  const isApprovalTimedOut = pendingApproval
-    ? new Date() > new Date(pendingApproval.timeoutAt)
-    : false;
+  // TODO: timeout info is now in the approvals WS stream, not in ToolStatus
+  const isApprovalTimedOut = false;
 
   const status = computeExecutionStatus({
     isInFeedbackMode,

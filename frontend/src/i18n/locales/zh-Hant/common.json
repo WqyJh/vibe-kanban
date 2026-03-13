@@ -412,5 +412,13 @@
     "streamsAffected_other": "{{count}} 個資料流受影響",
     "status": "(狀態 {{status}})",
     "refreshPage": "重新整理頁面"
+  },
+  "askQuestion": {
+    "title": "代理正在提問",
+    "selectMultiple": "多選",
+    "confirmSelection": "確認選擇",
+    "submitting": "正在提交回答...",
+    "answeredCount": "已回答{{count}}個問題",
+    "answeredCount_other": "已回答{{count}}個問題"
   }
 }

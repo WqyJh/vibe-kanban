@@ -412,5 +412,13 @@
     "streamsAffected_other": "{{count}} flujos afectados",
     "status": "(estado {{status}})",
     "refreshPage": "Actualizar página"
+  },
+  "askQuestion": {
+    "title": "El agente está haciendo una pregunta",
+    "selectMultiple": "seleccionar varios",
+    "confirmSelection": "Confirmar selección",
+    "submitting": "Enviando respuestas...",
+    "answeredCount": "Respondió {{count}} pregunta",
+    "answeredCount_other": "Respondió {{count}} preguntas"
   }
 }
