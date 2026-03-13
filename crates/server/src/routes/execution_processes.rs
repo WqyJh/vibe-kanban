@@ -12,6 +12,7 @@ use axum::{
 use db::models::{
     execution_process::{ExecutionProcess, ExecutionProcessError, ExecutionProcessStatus},
     execution_process_repo_state::ExecutionProcessRepoState,
+    normalized_entries::NormalizedEntry,
 };
 use deployment::Deployment;
 use futures_util::{SinkExt, StreamExt, TryStreamExt};
@@ -28,6 +29,22 @@ pub struct SessionExecutionProcessQuery {
     /// If true, include soft-deleted (dropped) processes in results/stream
     #[serde(default)]
     pub show_soft_deleted: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PaginatedEntriesQuery {
+    #[serde(default = "default_offset")]
+    pub offset: i64,
+    #[serde(default = "default_limit")]
+    pub limit: i64,
+}
+
+fn default_offset() -> i64 {
+    0
+}
+
+fn default_limit() -> i64 {
+    50
 }
 
 pub async fn get_execution_process_by_id(
@@ -243,11 +260,29 @@ pub async fn get_execution_process_repo_states(
     Ok(ResponseJson(ApiResponse::success(repo_states)))
 }
 
+pub async fn get_execution_process_entries(
+    Extension(execution_process): Extension<ExecutionProcess>,
+    State(deployment): State<DeploymentImpl>,
+    Query(query): Query<PaginatedEntriesQuery>,
+) -> Result<ResponseJson<ApiResponse<db::models::normalized_entries::PaginatedEntries>>, ApiError>
+{
+    let pool = &deployment.db().pool;
+    let entries = NormalizedEntry::find_by_execution_id_paginated(
+        pool,
+        execution_process.id,
+        query.offset,
+        query.limit,
+    )
+    .await?;
+    Ok(ResponseJson(ApiResponse::success(entries)))
+}
+
 pub fn router(deployment: &DeploymentImpl) -> Router<DeploymentImpl> {
     let workspace_id_router = Router::new()
         .route("/", get(get_execution_process_by_id))
         .route("/stop", post(stop_execution_process))
         .route("/repo-states", get(get_execution_process_repo_states))
+        .route("/entries", get(get_execution_process_entries))
         .route("/raw-logs/ws", get(stream_raw_logs_ws))
         .route("/normalized-logs/ws", get(stream_normalized_logs_ws))
         .layer(from_fn_with_state(

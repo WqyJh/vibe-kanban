@@ -99,6 +99,20 @@ import {
 import type { WorkspaceWithSession } from '@/types/attempt';
 import { createWorkspaceWithSession } from '@/types/attempt';
 
+// Paginated normalized entries types
+export type NormalizedEntryRecord = {
+  execution_id: string;
+  entry_index: number;
+  entry_json: string;
+  inserted_at: string;
+};
+
+export type PaginatedNormalizedEntries = {
+  entries: NormalizedEntryRecord[];
+  total_count: number;
+  has_more: boolean;
+};
+
 export class ApiError<E = unknown> extends Error {
   public status?: number;
   public error_data?: E;
@@ -827,6 +841,17 @@ export const executionProcessesApi = {
       }
     );
     return handleApiResponse<void>(response);
+  },
+
+  getEntries: async (
+    processId: string,
+    offset: number = 0,
+    limit: number = 50
+  ): Promise<PaginatedNormalizedEntries> => {
+    const response = await makeRequest(
+      `/api/execution-processes/${processId}/entries?offset=${offset}&limit=${limit}`
+    );
+    return handleApiResponse<PaginatedNormalizedEntries>(response);
   },
 };
 

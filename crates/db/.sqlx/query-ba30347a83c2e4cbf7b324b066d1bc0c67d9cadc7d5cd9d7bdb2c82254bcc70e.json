@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM normalized_entries WHERE execution_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "ba30347a83c2e4cbf7b324b066d1bc0c67d9cadc7d5cd9d7bdb2c82254bcc70e"
+}

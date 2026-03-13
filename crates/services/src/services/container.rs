@@ -18,6 +18,7 @@ use db::{
         execution_process_repo_state::{
             CreateExecutionProcessRepoState, ExecutionProcessRepoState,
         },
+        normalized_entries::NormalizedEntry as DbNormalizedEntry,
         repo::Repo,
         session::{CreateSession, Session, SessionError},
         task::{Task, TaskStatus},
@@ -37,6 +38,7 @@ use executors::{
     },
     executors::{ExecutorError, StandardCodingAgentExecutor},
     logs::{NormalizedEntry, NormalizedEntryError, NormalizedEntryType, utils::ConversationPatch},
+    logs::utils::extract_normalized_entry_from_patch,
     profile::ExecutorProfileId,
 };
 use futures::{StreamExt, future, stream::BoxStream};
@@ -1005,6 +1007,20 @@ pub trait ContainerService {
                     return None;
                 }
             }
+
+            // Spawn background task to persist normalized entries to DB
+            let db_pool = self.db().pool.clone();
+            let temp_store_for_persist = temp_store.clone();
+            let execution_id_for_persist = *id;
+            tokio::spawn(async move {
+                Self::persist_normalized_entries(
+                    db_pool,
+                    execution_id_for_persist,
+                    temp_store_for_persist,
+                )
+                .await;
+            });
+
             Some(
                 temp_store
                     .history_plus_stream()
@@ -1105,6 +1121,54 @@ pub trait ContainerService {
                 }
             }
         })
+    }
+
+    /// Persist normalized entries from a MsgStore to the database
+    async fn persist_normalized_entries(
+        db_pool: sqlx::SqlitePool,
+        execution_id: Uuid,
+        store: Arc<MsgStore>,
+    ) {
+        let entries: Vec<(i64, String)> = store
+            .get_history()
+            .iter()
+            .filter_map(|msg| {
+                if let LogMsg::JsonPatch(patch) = msg {
+                    extract_normalized_entry_from_patch(patch)
+                        .and_then(|(index, entry)| {
+                            serde_json::to_string(&entry)
+                                .map(|json| (index as i64, json))
+                                .ok()
+                        })
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if entries.is_empty() {
+            tracing::debug!(
+                "No normalized entries to persist for execution {}",
+                execution_id
+            );
+            return;
+        }
+
+        tracing::debug!(
+            "Persisting {} normalized entries for execution {}",
+            entries.len(),
+            execution_id
+        );
+
+        if let Err(e) =
+            DbNormalizedEntry::insert_batch(&db_pool, execution_id, &entries).await
+        {
+            tracing::error!(
+                "Failed to persist normalized entries for execution {}: {}",
+                execution_id,
+                e
+            );
+        }
     }
 
     async fn start_workspace(
