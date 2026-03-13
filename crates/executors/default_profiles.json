@@ -285,6 +285,83 @@
         }
       }
     },
+    "AUGGIE": {
+      "DEFAULT": {
+        "AUGGIE": {
+          "yolo": true
+        }
+      }
+    },
+    "CLINE": {
+      "DEFAULT": {
+        "CLINE": {
+          "yolo": true
+        }
+      }
+    },
+    "FAST_AGENT": {
+      "DEFAULT": {
+        "FAST_AGENT": {
+          "yolo": true
+        }
+      }
+    },
+    "GOOSE": {
+      "DEFAULT": {
+        "GOOSE": {
+          "yolo": true
+        }
+      }
+    },
+    "JUNIE": {
+      "DEFAULT": {
+        "JUNIE": {
+          "yolo": true
+        }
+      }
+    },
+    "KILO": {
+      "DEFAULT": {
+        "KILO": {
+          "yolo": true
+        }
+      }
+    },
+    "KIMI": {
+      "DEFAULT": {
+        "KIMI": {
+          "yolo": true
+        }
+      }
+    },
+    "MISTRAL_VIBE": {
+      "DEFAULT": {
+        "MISTRAL_VIBE": {
+          "yolo": true
+        }
+      }
+    },
+    "NOVA": {
+      "DEFAULT": {
+        "NOVA": {
+          "yolo": true
+        }
+      }
+    },
+    "QODER": {
+      "DEFAULT": {
+        "QODER": {
+          "yolo": true
+        }
+      }
+    },
+    "STAKPAK": {
+      "DEFAULT": {
+        "STAKPAK": {
+          "yolo": true
+        }
+      }
+    },
     "DROID": {
       "DEFAULT": {
         "DROID": {

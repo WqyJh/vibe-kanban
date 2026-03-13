@@ -349,6 +349,7 @@ export function SessionChatBoxContainer(props: SessionChatBoxContainerProps) {
     latestProfileId,
     scratchVariant: scratchData?.executor_profile_id?.variant,
     configExecutorProfile: config?.executor_profile,
+    agentOrder: config?.agent_order,
   });
 
   // Wrap variant change to also save to scratch

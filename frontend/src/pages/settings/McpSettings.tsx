@@ -31,6 +31,7 @@ import { McpConfig } from 'shared/types';
 import { useUserSystem } from '@/components/ConfigProvider';
 import { mcpServersApi } from '@/lib/api';
 import { McpConfigStrategyGeneral } from '@/lib/mcpStrategies';
+import { getSortedAgents } from '@/utils/executor';
 
 export function McpSettings() {
   const { t } = useTranslation('settings');
@@ -289,9 +290,8 @@ export function McpSettings() {
               </SelectTrigger>
               <SelectContent>
                 {profiles &&
-                  Object.entries(profiles)
-                    .sort((a, b) => a[0].localeCompare(b[0]))
-                    .map(([profileKey]) => (
+                  getSortedAgents(Object.keys(profiles) as BaseCodingAgent[], config?.agent_order)
+                    .map((profileKey) => (
                       <SelectItem key={profileKey} value={profileKey}>
                         {profileKey}
                       </SelectItem>

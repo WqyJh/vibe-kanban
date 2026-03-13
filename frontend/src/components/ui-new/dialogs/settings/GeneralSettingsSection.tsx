@@ -2,10 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cloneDeep, isEqual, merge } from 'lodash';
 import {
+  ArrowUpIcon,
+  ArrowDownIcon,
   FolderSimpleIcon,
   SpeakerHighIcon,
   SpinnerIcon,
 } from '@phosphor-icons/react';
+import { AgentIcon } from '@/components/agents/AgentIcon';
 import { FolderPickerDialog } from '@/components/dialogs/shared/FolderPickerDialog';
 import {
   type BaseCodingAgent,
@@ -21,6 +24,7 @@ import {
 import { getModifierKey } from '@/utils/platform';
 import { getLanguageOptions } from '@/i18n/languages';
 import { toPrettyCase } from '@/utils/string';
+import { getSortedAgents } from '@/utils/executor';
 import { useTheme } from '@/components/ThemeProvider';
 import { useUserSystem } from '@/components/ConfigProvider';
 import { TagManager } from '@/components/TagManager';
@@ -69,8 +73,7 @@ export function GeneralSettingsSection() {
 
   // Executor options for the default coding agent dropdown
   const executorOptions = profiles
-    ? Object.keys(profiles)
-        .sort()
+    ? getSortedAgents(Object.keys(profiles) as BaseCodingAgent[], config?.agent_order)
         .map((key) => ({ value: key, label: toPrettyCase(key) }))
     : [];
 
@@ -470,6 +473,78 @@ export function GeneralSettingsSection() {
           </div>
         </SettingsField>
       </SettingsCard>
+
+      {/* Agent Order */}
+      {profiles && (
+        <SettingsCard
+          title="Agent Order"
+          description="Drag agents to reorder. This order is used across all agent selectors."
+        >
+          <div className="space-y-0.5">
+            {getSortedAgents(
+              Object.keys(profiles) as BaseCodingAgent[],
+              draft?.agent_order
+            ).map((agent, index, arr) => (
+              <div
+                key={agent}
+                className="flex items-center gap-2 px-2 py-1.5 rounded-sm hover:bg-secondary/50"
+              >
+                <AgentIcon
+                  agent={agent}
+                  className="size-icon-sm shrink-0"
+                />
+                <span className="flex-1 text-sm text-normal">
+                  {toPrettyCase(agent)}
+                </span>
+                <button
+                  className="p-half rounded-sm hover:bg-secondary text-low hover:text-normal disabled:opacity-30 disabled:cursor-not-allowed"
+                  disabled={index === 0}
+                  onClick={() => {
+                    const order = getSortedAgents(
+                      Object.keys(profiles) as BaseCodingAgent[],
+                      draft?.agent_order
+                    );
+                    const newOrder = [...order];
+                    [newOrder[index - 1], newOrder[index]] = [
+                      newOrder[index],
+                      newOrder[index - 1],
+                    ];
+                    setDraft((prev) =>
+                      prev ? { ...prev, agent_order: newOrder } : prev
+                    );
+                    setDirty(true);
+                  }}
+                  title="Move up"
+                >
+                  <ArrowUpIcon className="size-icon-xs" weight="bold" />
+                </button>
+                <button
+                  className="p-half rounded-sm hover:bg-secondary text-low hover:text-normal disabled:opacity-30 disabled:cursor-not-allowed"
+                  disabled={index === arr.length - 1}
+                  onClick={() => {
+                    const order = getSortedAgents(
+                      Object.keys(profiles) as BaseCodingAgent[],
+                      draft?.agent_order
+                    );
+                    const newOrder = [...order];
+                    [newOrder[index], newOrder[index + 1]] = [
+                      newOrder[index + 1],
+                      newOrder[index],
+                    ];
+                    setDraft((prev) =>
+                      prev ? { ...prev, agent_order: newOrder } : prev
+                    );
+                    setDirty(true);
+                  }}
+                  title="Move down"
+                >
+                  <ArrowDownIcon className="size-icon-xs" weight="bold" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </SettingsCard>
+      )}
 
       {/* Git */}
       <SettingsCard

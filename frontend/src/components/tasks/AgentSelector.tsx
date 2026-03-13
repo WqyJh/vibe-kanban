@@ -8,6 +8,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
 import type { ExecutorProfileId, BaseCodingAgent } from 'shared/types';
+import { getSortedAgents } from '@/utils/executor';
+import { useUserSystem } from '@/components/ConfigProvider';
 
 interface AgentSelectorProps {
   profiles: Record<string, Record<string, unknown>> | null;
@@ -26,8 +28,9 @@ export function AgentSelector({
   className = '',
   showLabel = false,
 }: AgentSelectorProps) {
+  const { config } = useUserSystem();
   const agents = profiles
-    ? (Object.keys(profiles).sort() as BaseCodingAgent[])
+    ? getSortedAgents(Object.keys(profiles) as BaseCodingAgent[], config?.agent_order)
     : [];
   const selectedAgent = selectedExecutorProfile?.executor;
 

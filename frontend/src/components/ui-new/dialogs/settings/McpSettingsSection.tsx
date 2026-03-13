@@ -8,6 +8,7 @@ import { mcpServersApi } from '@/lib/api';
 import { McpConfigStrategyGeneral } from '@/lib/mcpStrategies';
 import { cn } from '@/lib/utils';
 import { toPrettyCase } from '@/utils/string';
+import { getSortedAgents } from '@/utils/executor';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -224,8 +225,7 @@ export function McpSettingsSection() {
   const getMetaFor = (key: string) => meta[key] || {};
 
   const profileOptions = profiles
-    ? Object.keys(profiles)
-        .sort()
+    ? getSortedAgents(Object.keys(profiles) as BaseCodingAgent[], config?.agent_order)
         .map((key) => ({ value: key, label: toPrettyCase(key) }))
     : [];
 

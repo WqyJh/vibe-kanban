@@ -40,6 +40,7 @@ import type {
   ExecutorConfigs,
   ExecutorProfileId,
 } from 'shared/types';
+import { getSortedAgents } from '@/utils/executor';
 
 type ExecutorsMap = Record<string, Record<string, Record<string, unknown>>>;
 
@@ -504,9 +505,8 @@ export function AgentSettings() {
                 </SelectTrigger>
                 <SelectContent>
                   {profiles &&
-                    Object.entries(profiles)
-                      .sort((a, b) => a[0].localeCompare(b[0]))
-                      .map(([profileKey]) => (
+                    getSortedAgents(Object.keys(profiles) as BaseCodingAgent[], config?.agent_order)
+                      .map((profileKey) => (
                         <SelectItem key={profileKey} value={profileKey}>
                           {profileKey}
                         </SelectItem>
@@ -643,7 +643,7 @@ export function AgentSettings() {
                       />
                     </SelectTrigger>
                     <SelectContent>
-                      {Object.keys(localParsedProfiles.executors).map(
+                      {getSortedAgents(Object.keys(localParsedProfiles.executors) as BaseCodingAgent[], config?.agent_order).map(
                         (type) => (
                           <SelectItem key={type} value={type}>
                             {type}

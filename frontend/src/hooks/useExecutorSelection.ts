@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import type { BaseCodingAgent, ExecutorConfig } from 'shared/types';
-import { getVariantOptions } from '@/utils/executor';
+import { getVariantOptions, getSortedAgents } from '@/utils/executor';
 import { useVariant } from './useVariant';
 
 interface ExecutorProfileId {
@@ -14,6 +14,8 @@ interface UseExecutorSelectionOptions {
   scratchVariant: string | null | undefined;
   /** User's saved executor preference from config */
   configExecutorProfile?: ExecutorProfileId | null;
+  /** User-defined agent ordering */
+  agentOrder?: BaseCodingAgent[] | null;
 }
 
 interface UseExecutorSelectionResult {
@@ -41,13 +43,14 @@ export function useExecutorSelection({
   latestProfileId,
   scratchVariant,
   configExecutorProfile,
+  agentOrder,
 }: UseExecutorSelectionOptions): UseExecutorSelectionResult {
   const [selectedExecutor, setSelectedExecutor] =
     useState<BaseCodingAgent | null>(null);
 
   const executorOptions = useMemo(
-    () => Object.keys(profiles ?? {}) as BaseCodingAgent[],
-    [profiles]
+    () => getSortedAgents(Object.keys(profiles ?? {}) as BaseCodingAgent[], agentOrder),
+    [profiles, agentOrder]
   );
 
   const effectiveExecutor = useMemo(

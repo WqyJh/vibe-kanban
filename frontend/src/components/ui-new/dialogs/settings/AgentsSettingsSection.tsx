@@ -21,6 +21,7 @@ import { DeleteConfigurationDialog } from '@/components/dialogs/settings/DeleteC
 import type { BaseCodingAgent, ExecutorConfigs } from 'shared/types';
 import { cn } from '@/lib/utils';
 import { toPrettyCase } from '@/utils/string';
+import { getSortedAgents } from '@/utils/executor';
 import {
   SettingsSaveBar,
   TwoColumnPicker,
@@ -381,7 +382,7 @@ export function AgentsSettingsSection() {
               label={t('settings.agents.editor.agentLabel')}
               isFirst
             >
-              {Object.keys(localParsedProfiles.executors).map((executor) => {
+              {getSortedAgents(Object.keys(localParsedProfiles.executors) as BaseCodingAgent[], config?.agent_order).map((executor) => {
                 const isDefault =
                   config?.executor_profile?.executor === executor;
                 return (

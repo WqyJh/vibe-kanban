@@ -29,6 +29,7 @@ import type { EditorConfig, ExecutorProfileId } from 'shared/types';
 import { useUserSystem } from '@/components/ConfigProvider';
 
 import { toPrettyCase } from '@/utils/string';
+import { getSortedAgents } from '@/utils/executor';
 import NiceModal, { useModal } from '@ebay/nice-modal-react';
 import { defineModal, type NoProps } from '@/lib/modals';
 import { useEditorAvailability } from '@/hooks/useEditorAvailability';
@@ -106,8 +107,7 @@ const OnboardingDialogImpl = NiceModal.create<NoProps>(() => {
                 </SelectTrigger>
                 <SelectContent>
                   {profiles &&
-                    (Object.keys(profiles) as BaseCodingAgent[])
-                      .sort()
+                    getSortedAgents(Object.keys(profiles) as BaseCodingAgent[], config?.agent_order)
                       .map((agent) => (
                         <SelectItem key={agent} value={agent}>
                           {agent}

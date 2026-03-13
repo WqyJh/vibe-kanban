@@ -43,6 +43,28 @@ export function getVariantOptions(
 }
 
 /**
+ * Sort agents by user-defined order, falling back to alphabetical.
+ * Agents in agentOrder come first (in that order), then remaining agents alphabetically.
+ */
+export function getSortedAgents(
+  agents: BaseCodingAgent[],
+  agentOrder: BaseCodingAgent[] | undefined | null
+): BaseCodingAgent[] {
+  if (!agentOrder || agentOrder.length === 0) {
+    return [...agents].sort();
+  }
+  const orderMap = new Map(agentOrder.map((a, i) => [a, i]));
+  return [...agents].sort((a, b) => {
+    const ai = orderMap.get(a);
+    const bi = orderMap.get(b);
+    if (ai !== undefined && bi !== undefined) return ai - bi;
+    if (ai !== undefined) return -1;
+    if (bi !== undefined) return 1;
+    return a.localeCompare(b);
+  });
+}
+
+/**
  * Extract ExecutorProfileId from an ExecutorAction chain.
  * Traverses the action chain to find the first coding agent request.
  */

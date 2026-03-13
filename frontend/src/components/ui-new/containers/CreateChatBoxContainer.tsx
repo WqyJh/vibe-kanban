@@ -5,7 +5,7 @@ import { useCreateMode } from '@/contexts/CreateModeContext';
 import { useUserSystem } from '@/components/ConfigProvider';
 import { useCreateWorkspace } from '@/hooks/useCreateWorkspace';
 import { useCreateAttachments } from '@/hooks/useCreateAttachments';
-import { getVariantOptions, areProfilesEqual } from '@/utils/executor';
+import { getVariantOptions, areProfilesEqual, getSortedAgents } from '@/utils/executor';
 import { splitMessageToTitleDescription } from '@/utils/string';
 import type { ExecutorProfileId, BaseCodingAgent, Repo } from 'shared/types';
 import { CreateChatBox } from '../primitives/CreateChatBox';
@@ -330,7 +330,7 @@ export function CreateChatBoxContainer({
                   disabled={!hasSelectedRepos}
                   executor={{
                     selected: effectiveProfile?.executor ?? null,
-                    options: Object.keys(profiles ?? {}) as BaseCodingAgent[],
+                    options: getSortedAgents(Object.keys(profiles ?? {}) as BaseCodingAgent[], config?.agent_order),
                     onChange: handleExecutorChange,
                   }}
                   variant={
