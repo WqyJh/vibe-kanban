@@ -5,7 +5,7 @@ import { useTaskAttemptWithSession } from '@/hooks/useTaskAttempt';
 import { useNavigateWithSearch } from '@/hooks';
 import { useUserSystem } from '@/components/ConfigProvider';
 import { paths } from '@/lib/paths';
-import type { TaskWithAttemptStatus } from 'shared/types';
+import type { TaskWithAttemptStatus, BaseCodingAgent } from 'shared/types';
 import type { WorkspaceWithSession } from '@/types/attempt';
 import { NewCardContent } from '../ui/new-card';
 import { Button } from '../ui/button';
@@ -13,6 +13,7 @@ import { PlusIcon } from 'lucide-react';
 import { CreateAttemptDialog } from '@/components/dialogs/tasks/CreateAttemptDialog';
 import WYSIWYGEditor from '@/components/ui/wysiwyg';
 import { DataTable, type ColumnDef } from '@/components/ui/table';
+import { AgentIcon, getAgentName } from '@/components/agents/AgentIcon';
 
 interface TaskPanelProps {
   task: TaskWithAttemptStatus | null;
@@ -82,7 +83,18 @@ const TaskPanel = ({ task }: TaskPanelProps) => {
     {
       id: 'executor',
       header: '',
-      accessor: (attempt) => attempt.session?.executor || 'Base Agent',
+      accessor: (attempt) => {
+        const executor = attempt.session?.executor as
+          | BaseCodingAgent
+          | undefined;
+        if (!executor) return 'Base Agent';
+        return (
+          <span className="flex items-center gap-1.5">
+            <AgentIcon agent={executor} className="h-3.5 w-3.5" />
+            {getAgentName(executor)}
+          </span>
+        );
+      },
       className: 'pr-4',
     },
     {
@@ -107,6 +119,15 @@ const TaskPanel = ({ task }: TaskPanelProps) => {
             <WYSIWYGEditor value={titleContent} disabled />
             {descriptionContent && (
               <WYSIWYGEditor value={descriptionContent} disabled />
+            )}
+            {task.executor && (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <AgentIcon
+                  agent={task.executor as BaseCodingAgent}
+                  className="h-3.5 w-3.5"
+                />
+                <span>{getAgentName(task.executor as BaseCodingAgent)}</span>
+              </div>
             )}
           </div>
 
