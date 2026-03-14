@@ -58,6 +58,7 @@ use tokio_util::io::ReaderStream;
 use utils::{
     log_msg::LogMsg,
     msg_store::MsgStore,
+    shell,
     text::{git_branch_id, short_uuid, truncate_to_char_boundary},
 };
 use uuid::Uuid;
@@ -1358,14 +1359,32 @@ impl ContainerService for LocalContainerService {
         env.insert("VK_SESSION_ID", execution_process.session_id.to_string());
 
         // Share Cargo build cache across worktrees for Rust projects.
-        // Point CARGO_TARGET_DIR to the source repo's target/ directory so all
-        // worktrees reuse the same build artifacts instead of each having its own.
         for repo in &repos {
             if repo.path.join("Cargo.toml").exists() {
-                env.insert(
-                    "CARGO_TARGET_DIR",
-                    repo.path.join("target").display().to_string(),
-                );
+                if let Some(sccache_path) = shell::resolve_executable_path_blocking("sccache") {
+                    // sccache available: use it as compiler cache wrapper
+                    env.insert(
+                        "RUSTC_WRAPPER",
+                        sccache_path.display().to_string(),
+                    );
+                    // Enable cross-worktree cache hits via SCCACHE_BASEDIRS
+                    let mut basedirs = Vec::new();
+                    if let Some(parent) = repo.path.parent() {
+                        basedirs.push(parent.display().to_string());
+                    }
+                    basedirs.push(
+                        services::services::worktree_manager::WorktreeManager::get_worktree_base_dir()
+                            .display()
+                            .to_string(),
+                    );
+                    env.insert("SCCACHE_BASEDIRS", basedirs.join(":"));
+                } else {
+                    // Fallback: share source repo's target/ directory
+                    env.insert(
+                        "CARGO_TARGET_DIR",
+                        repo.path.join("target").display().to_string(),
+                    );
+                }
                 break;
             }
         }
