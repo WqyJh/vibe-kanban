@@ -9,7 +9,7 @@ import {
 } from 'shared/types';
 import { useExecutionProcessesContext } from '@/contexts/ExecutionProcessesContext';
 import { useEntries } from '@/contexts/EntriesContext';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { streamJsonPatchEntries } from '@/utils/streamJsonPatchEntries';
 import type {
   AddEntryType,
@@ -23,7 +23,6 @@ import {
   makeLoadingPatch,
   MIN_INITIAL_ENTRIES,
   nextActionPatch,
-  REMAINING_BATCH_SIZE,
   taskDurationPatch,
 } from './constants';
 
@@ -39,6 +38,14 @@ export const useConversationHistoryOld = ({
   const loadedInitialEntries = useRef(false);
   const streamingProcessIdsRef = useRef<Set<string>>(new Set());
   const onEntriesUpdatedRef = useRef<OnEntriesUpdated | null>(null);
+  // Track pagination state
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const loadedProcessIds = useRef<Set<string>>(new Set());
+  const allHistoricProcesses = useRef<ExecutionProcess[]>([]);
+  // Preloaded entries cache: processId -> { executionProcess, entries }
+  const preloadedEntries = useRef<Map<string, ExecutionProcessStateStore[string]>>(new Map());
+  const [isPreloading, setIsPreloading] = useState(false);
 
   const mergeIntoDisplayed = (
     mutator: (state: ExecutionProcessStateStore) => void
@@ -474,18 +481,60 @@ export const useConversationHistoryOld = ({
     [loadRunningAndEmit]
   );
 
+  // Get all historic (non-running) processes in reverse chronological order
+  const getHistoricProcesses = useCallback((): ExecutionProcess[] => {
+    if (!executionProcesses?.current) return [];
+    return [...executionProcesses.current]
+      .filter((ep) => ep.status !== ExecutionProcessStatus.running)
+      .reverse();
+  }, [executionProcesses]);
+
+  // Preload next batch into cache (non-blocking)
+  const preloadNextBatch = useCallback(async () => {
+    if (isPreloading) return;
+
+    const remainingProcesses = allHistoricProcesses.current.filter(
+      (p) => !loadedProcessIds.current.has(p.id) && !preloadedEntries.current.has(p.id)
+    );
+
+    if (remainingProcesses.length === 0) return;
+
+    setIsPreloading(true);
+
+    // Preload up to MIN_INITIAL_ENTRIES worth of content
+    let entriesLoaded = 0;
+    for (const executionProcess of remainingProcesses) {
+      const entries =
+        await loadEntriesForHistoricExecutionProcess(executionProcess);
+      const entriesWithKey = entries.map((e, idx) =>
+        patchWithKey(e, executionProcess.id, idx)
+      );
+
+      preloadedEntries.current.set(executionProcess.id, {
+        executionProcess,
+        entries: entriesWithKey,
+      });
+      entriesLoaded += entries.length;
+
+      if (entriesLoaded >= MIN_INITIAL_ENTRIES) {
+        break;
+      }
+    }
+
+    setIsPreloading(false);
+  }, [isPreloading]);
+
   const loadInitialEntries =
     useCallback(async (): Promise<ExecutionProcessStateStore> => {
       const localDisplayedExecutionProcesses: ExecutionProcessStateStore = {};
 
-      if (!executionProcesses?.current) return localDisplayedExecutionProcesses;
+      const historicProcesses = getHistoricProcesses();
+      // Store all historic processes for later pagination
+      allHistoricProcesses.current = historicProcesses;
+      // Clear preloaded cache
+      preloadedEntries.current.clear();
 
-      for (const executionProcess of [
-        ...executionProcesses.current,
-      ].reverse()) {
-        if (executionProcess.status === ExecutionProcessStatus.running)
-          continue;
-
+      for (const executionProcess of historicProcesses) {
         const entries =
           await loadEntriesForHistoricExecutionProcess(executionProcess);
         const entriesWithKey = entries.map((e, idx) =>
@@ -496,6 +545,7 @@ export const useConversationHistoryOld = ({
           executionProcess,
           entries: entriesWithKey,
         };
+        loadedProcessIds.current.add(executionProcess.id);
 
         if (
           flattenEntries(localDisplayedExecutionProcesses).length >
@@ -505,49 +555,103 @@ export const useConversationHistoryOld = ({
         }
       }
 
-      return localDisplayedExecutionProcesses;
-    }, [executionProcesses]);
+      // Check if there are more processes to load
+      const remainingProcesses = historicProcesses.filter(
+        (p) => !loadedProcessIds.current.has(p.id)
+      );
+      setHasMore(remainingProcesses.length > 0);
 
-  const loadRemainingEntriesInBatches = useCallback(
-    async (batchSize: number): Promise<boolean> => {
-      if (!executionProcesses?.current) return false;
-
-      let anyUpdated = false;
-      for (const executionProcess of [
-        ...executionProcesses.current,
-      ].reverse()) {
-        const current = displayedExecutionProcesses.current;
-        if (
-          current[executionProcess.id] ||
-          executionProcess.status === ExecutionProcessStatus.running
-        )
-          continue;
-
-        const entries =
-          await loadEntriesForHistoricExecutionProcess(executionProcess);
-        const entriesWithKey = entries.map((e, idx) =>
-          patchWithKey(e, executionProcess.id, idx)
-        );
-
-        mergeIntoDisplayed((state) => {
-          state[executionProcess.id] = {
-            executionProcess,
-            entries: entriesWithKey,
-          };
-        });
-
-        if (
-          flattenEntries(displayedExecutionProcesses.current).length > batchSize
-        ) {
-          anyUpdated = true;
-          break;
-        }
-        anyUpdated = true;
+      // Start preloading next batch in background
+      if (remainingProcesses.length > 0) {
+        preloadNextBatch();
       }
-      return anyUpdated;
-    },
-    [executionProcesses]
-  );
+
+      return localDisplayedExecutionProcesses;
+    }, [getHistoricProcesses, preloadNextBatch]);
+
+  // Load more historic entries - use preloaded cache if available
+  const loadMore = useCallback(async () => {
+    if (isLoadingMore || !hasMore) return;
+
+    setIsLoadingMore(true);
+
+    // First, use any preloaded entries
+    const preloaded = Array.from(preloadedEntries.current.values());
+    if (preloaded.length > 0) {
+      for (const state of preloaded) {
+        mergeIntoDisplayed((s) => {
+          s[state.executionProcess.id] = state;
+        });
+        loadedProcessIds.current.add(state.executionProcess.id);
+      }
+      preloadedEntries.current.clear();
+
+      // Emit with loading=true while we start the next preload
+      emitEntries(displayedExecutionProcesses.current, 'historic', true);
+
+      // Check if there are still more
+      const stillRemaining = allHistoricProcesses.current.filter(
+        (p) => !loadedProcessIds.current.has(p.id)
+      );
+      setHasMore(stillRemaining.length > 0);
+
+      // Start preloading next batch in background BEFORE clearing loading state
+      if (stillRemaining.length > 0) {
+        preloadNextBatch();
+      }
+
+      setIsLoadingMore(false);
+      emitEntries(displayedExecutionProcesses.current, 'historic', false);
+      return;
+    }
+
+    // No preloaded content, load synchronously
+    const remainingProcesses = allHistoricProcesses.current.filter(
+      (p) => !loadedProcessIds.current.has(p.id)
+    );
+
+    if (remainingProcesses.length === 0) {
+      setHasMore(false);
+      setIsLoadingMore(false);
+      return;
+    }
+
+    let entriesLoaded = 0;
+    for (const executionProcess of remainingProcesses) {
+      const entries =
+        await loadEntriesForHistoricExecutionProcess(executionProcess);
+      const entriesWithKey = entries.map((e, idx) =>
+        patchWithKey(e, executionProcess.id, idx)
+      );
+
+      mergeIntoDisplayed((state) => {
+        state[executionProcess.id] = {
+          executionProcess,
+          entries: entriesWithKey,
+        };
+      });
+      loadedProcessIds.current.add(executionProcess.id);
+      entriesLoaded += entries.length;
+
+      emitEntries(displayedExecutionProcesses.current, 'historic', true);
+
+      if (entriesLoaded >= MIN_INITIAL_ENTRIES) {
+        break;
+      }
+    }
+
+    const stillRemaining = allHistoricProcesses.current.filter(
+      (p) => !loadedProcessIds.current.has(p.id)
+    );
+    setHasMore(stillRemaining.length > 0);
+    setIsLoadingMore(false);
+    emitEntries(displayedExecutionProcesses.current, 'historic', false);
+
+    // Start preloading next batch
+    if (stillRemaining.length > 0) {
+      preloadNextBatch();
+    }
+  }, [isLoadingMore, hasMore, emitEntries, preloadNextBatch]);
 
   const ensureProcessVisible = useCallback((p: ExecutionProcess) => {
     mergeIntoDisplayed((state) => {
@@ -594,16 +698,6 @@ export const useConversationHistoryOld = ({
       });
       emitEntries(displayedExecutionProcesses.current, 'initial', false);
       loadedInitialEntries.current = true;
-
-      // Then load the remaining in batches
-      while (
-        !cancelled &&
-        (await loadRemainingEntriesInBatches(REMAINING_BATCH_SIZE))
-      ) {
-        if (cancelled) return;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      emitEntries(displayedExecutionProcesses.current, 'historic', false);
     })();
     return () => {
       cancelled = true;
@@ -612,7 +706,6 @@ export const useConversationHistoryOld = ({
     attempt.id,
     idListKey,
     loadInitialEntries,
-    loadRemainingEntriesInBatches,
     emitEntries,
   ]); // include idListKey so new processes trigger reload
 
@@ -674,8 +767,16 @@ export const useConversationHistoryOld = ({
     displayedExecutionProcesses.current = {};
     loadedInitialEntries.current = false;
     streamingProcessIdsRef.current.clear();
+    loadedProcessIds.current.clear();
+    allHistoricProcesses.current = [];
+    setHasMore(false);
+    setIsLoadingMore(false);
     emitEntries(displayedExecutionProcesses.current, 'initial', true);
   }, [attempt.id, emitEntries]);
 
-  return {};
+  return {
+    loadMore,
+    hasMore,
+    isLoadingMore: isLoadingMore || isPreloading,
+  };
 };
