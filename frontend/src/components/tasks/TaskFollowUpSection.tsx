@@ -875,27 +875,29 @@ export function TaskFollowUpSection({
       {/* Always-visible action bar */}
       <div className="p-4">
         <div className="flex flex-row gap-2 items-center">
-          <div className="flex-1 flex gap-2">
-            <AgentSelector
-              profiles={profiles}
-              selectedExecutorProfile={selectedExecutor ? { executor: selectedExecutor, variant: selectedVariant } : null}
-              onChange={(profile) => {
-                setSelectedExecutor(profile.executor);
-                // Reset variant when executor changes
-                if (profile.executor !== latestProfileId?.executor) {
-                  setVariantFromHook(null);
-                }
-              }}
-              disabled={!isEditable}
-              className="w-32"
-            />
-            <VariantSelector
-              currentProfile={currentProfile}
-              selectedVariant={selectedVariant}
-              onChange={setSelectedVariant}
-              disabled={!isEditable}
-            />
-          </div>
+          {!isAttemptRunning && (
+            <div className="flex-1 flex gap-2">
+              <AgentSelector
+                profiles={profiles}
+                selectedExecutorProfile={selectedExecutor ? { executor: selectedExecutor, variant: selectedVariant } : null}
+                onChange={(profile) => {
+                  setSelectedExecutor(profile.executor);
+                  // Reset variant when executor changes
+                  if (profile.executor !== latestProfileId?.executor) {
+                    setVariantFromHook(null);
+                  }
+                }}
+                disabled={!isEditable}
+                className="w-32"
+              />
+              <VariantSelector
+                currentProfile={currentProfile}
+                selectedVariant={selectedVariant}
+                onChange={setSelectedVariant}
+                disabled={!isEditable}
+              />
+            </div>
+          )}
 
           {/* Hidden file input for attachment - always present */}
           <input
