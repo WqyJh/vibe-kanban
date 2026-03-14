@@ -1,5 +1,5 @@
 // Re-export types for backward compatibility
 export type { AddEntryType, OnEntriesUpdated, PatchTypeWithKey } from './types';
 
-// Re-export the old UI hook with original name for backward compatibility
+// Use old WebSocket-based hook for history loading
 export { useConversationHistoryOld as useConversationHistory } from './useConversationHistoryOld';

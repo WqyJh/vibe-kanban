@@ -100,19 +100,8 @@ export interface UseConversationHistoryParams {
 }
 
 export interface UseConversationHistoryResult {
-  // Paginated methods for scroll-aware loading
-  preloadBefore?: (executionProcessId: string) => Promise<PatchTypeWithKey[]>;
-  preloadAfter?: (executionProcessId: string) => Promise<PatchTypeWithKey[]>;
-  getPaginatedState?: (executionProcessId: string) => {
-    entries: PatchTypeWithKey[];
-    totalCount: number;
-    loadedRanges: Array<{ start: number; end: number }>;
-    isLoading: boolean;
-    hasMore: boolean;
-  } | undefined;
-  checkPreload?: (
-    executionProcessId: string,
-    firstVisibleIndex: number,
-    lastVisibleIndex: number
-  ) => Promise<void>;
+  // Load more historic entries on demand
+  loadMore?: () => Promise<void>;
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
 }
