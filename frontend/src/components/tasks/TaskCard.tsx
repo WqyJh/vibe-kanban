@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { KanbanCard } from '@/components/ui/shadcn-io/kanban';
 import { Link, Loader2, XCircle } from 'lucide-react';
-import type { TaskWithAttemptStatus } from 'shared/types';
+import type { TaskWithAttemptStatus, BaseCodingAgent } from 'shared/types';
 import { ActionsDropdown } from '@/components/ui/actions-dropdown';
 import { Button } from '@/components/ui/button';
 import { useNavigateWithSearch } from '@/hooks';
 import { paths } from '@/lib/paths';
 import { attemptsApi } from '@/lib/api';
 import { TaskCardHeader } from './TaskCardHeader';
+import { AgentIcon, getAgentName } from '@/components/agents/AgentIcon';
 import { useTranslation } from 'react-i18next';
 
 type Task = TaskWithAttemptStatus;
@@ -118,6 +119,15 @@ export function TaskCard({
               ? `${task.description.substring(0, 130)}...`
               : task.description}
           </p>
+        )}
+        {task.executor && (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <AgentIcon
+              agent={task.executor as BaseCodingAgent}
+              className="h-3.5 w-3.5"
+            />
+            <span>{getAgentName(task.executor as BaseCodingAgent)}</span>
+          </div>
         )}
       </div>
     </KanbanCard>
