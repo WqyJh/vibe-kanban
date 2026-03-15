@@ -1,5 +1,6 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
+use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 use workspace_utils::approvals::{ApprovalStatus, QuestionStatus};
 
@@ -35,6 +36,10 @@ pub struct ClaudeAgentClient {
     repo_context: RepoContext,
     commit_reminder_prompt: String,
     cancel: CancellationToken,
+    /// Tracks AskUserQuestion answers keyed by tool_use_id, so that if
+    /// can_use_tool arrives for an already-answered question (after the hook
+    /// callback handled it), we can short-circuit instead of blocking forever.
+    answered_questions: Mutex<HashMap<String, serde_json::Map<String, serde_json::Value>>>,
 }
 
 impl ClaudeAgentClient {
@@ -54,6 +59,7 @@ impl ClaudeAgentClient {
             repo_context,
             commit_reminder_prompt,
             cancel,
+            answered_questions: Mutex::new(HashMap::new()),
         })
     }
 
@@ -284,9 +290,24 @@ impl ClaudeAgentClient {
         tool_use_id: Option<String>,
     ) -> Result<PermissionResult, ExecutorError> {
         if tool_name == ASK_USER_QUESTION_NAME {
-            if let Some(latest_tool_use_id) = tool_use_id {
+            if let Some(ref latest_tool_use_id) = tool_use_id {
+                // Check if this question was already answered via the hook callback
+                // path. If so, short-circuit with the stored answers instead of
+                // creating a duplicate approval that would block forever.
+                if let Some(answers_map) =
+                    self.answered_questions.lock().await.remove(latest_tool_use_id)
+                {
+                    let mut updated = input.clone();
+                    if let Some(obj) = updated.as_object_mut() {
+                        obj.insert("answers".to_string(), serde_json::Value::Object(answers_map));
+                    }
+                    return Ok(PermissionResult::Allow {
+                        updated_input: updated,
+                        updated_permissions: None,
+                    });
+                }
                 return self
-                    .handle_question(latest_tool_use_id, tool_name, input)
+                    .handle_question(latest_tool_use_id.clone(), tool_name, input)
                     .await;
             } else {
                 tracing::warn!("AskUserQuestion without tool_use_id, cannot route to approval");
@@ -504,6 +525,12 @@ impl ClaudeAgentClient {
                         )
                     })
                     .collect();
+                // Store answers so that if can_use_tool arrives later for the
+                // same tool call, we can return immediately instead of blocking.
+                self.answered_questions
+                    .lock()
+                    .await
+                    .insert(tool_use_id.clone(), answers_map.clone());
                 let mut updated = tool_input.clone();
                 if let Some(obj) = updated.as_object_mut() {
                     obj.insert(
