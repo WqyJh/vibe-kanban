@@ -138,6 +138,7 @@ async function extractAndRun(baseName, launch) {
     "vibe-kanban": "server",
     "vibe-kanban-mcp": "mcp_task_server",
     "vibe-kanban-review": "review",
+    "vibe-kanban-gateway": "e2ee-gateway",
   };
   let resolvedPath = binPath;
   if (!fs.existsSync(binPath)) {
@@ -173,6 +174,7 @@ async function main() {
   const args = process.argv.slice(2);
   const isMcpMode = args.includes("--mcp");
   const isReviewMode = args[0] === "review";
+  const isGatewayMode = args[0] === "gateway";
 
   // Non-blocking update check (skip in MCP mode, local dev mode, and when GitHub repo not configured)
   const hasValidReleasesRepo = !GITHUB_RELEASES_REPO.startsWith("__");
@@ -211,6 +213,18 @@ async function main() {
         console.error("Review CLI error:", e.message);
         process.exit(1);
       });
+    });
+  } else if (isGatewayMode) {
+    await extractAndRun("vibe-kanban-gateway", (bin) => {
+      const gatewayArgs = args.slice(1);
+      const proc = spawn(bin, gatewayArgs, { stdio: "inherit" });
+      proc.on("exit", (c) => process.exit(c || 0));
+      proc.on("error", (e) => {
+        console.error("Gateway error:", e.message);
+        process.exit(1);
+      });
+      process.on("SIGINT", () => proc.kill("SIGINT"));
+      process.on("SIGTERM", () => proc.kill("SIGTERM"));
     });
   } else {
     const modeLabel = LOCAL_DEV_MODE ? " (local dev)" : "";
