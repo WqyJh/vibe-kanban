@@ -136,7 +136,11 @@ const VirtualizedList = ({ attempt, task }: VirtualizedListProps) => {
     // Dismiss full-screen overlay only when we receive real conversation data.
     // The reset emit sends a synthetic next_action patch with addType='initial',
     // which we must ignore to keep the overlay visible until real data arrives.
-    if (initialLoading && addType === 'initial' && !hasReceivedRealData.current) {
+    if (
+      initialLoading &&
+      addType === 'initial' &&
+      !hasReceivedRealData.current
+    ) {
       // The reset emit produces only a synthetic next_action entry.
       // Dismiss the overlay once we see anything other than that.
       const onlySynthetic = newEntries.every(

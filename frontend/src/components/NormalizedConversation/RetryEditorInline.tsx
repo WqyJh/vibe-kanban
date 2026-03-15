@@ -52,9 +52,8 @@ export function RetryEditorInline({
   }, [attemptData.processes, executionProcessId]);
 
   // Track selected executor (allows changing executor on retry)
-  const [selectedExecutor, setSelectedExecutor] = useState<BaseCodingAgent | null>(
-    processProfile?.executor ?? null
-  );
+  const [selectedExecutor, setSelectedExecutor] =
+    useState<BaseCodingAgent | null>(processProfile?.executor ?? null);
 
   // Track if executor was changed from original
   const executorChanged = useMemo(() => {
@@ -84,7 +83,11 @@ export function RetryEditorInline({
 
   const isSending = retryMutation.isPending;
   const canSend =
-    !isAttemptRunning && !!message.trim() && !!sessionId && !!processProfile && !!selectedExecutor;
+    !isAttemptRunning &&
+    !!message.trim() &&
+    !!sessionId &&
+    !!processProfile &&
+    !!selectedExecutor;
 
   const onCancel = () => {
     onCancelled?.();
@@ -180,7 +183,11 @@ export function RetryEditorInline({
       <div className="flex items-center gap-2">
         <AgentSelector
           profiles={profiles}
-          selectedExecutorProfile={selectedExecutor ? { executor: selectedExecutor, variant: selectedVariant } : null}
+          selectedExecutorProfile={
+            selectedExecutor
+              ? { executor: selectedExecutor, variant: selectedVariant }
+              : null
+          }
           onChange={(profile) => {
             setSelectedExecutor(profile.executor);
             // Reset variant when executor changes
@@ -194,7 +201,9 @@ export function RetryEditorInline({
         <VariantSelector
           selectedVariant={selectedVariant}
           onChange={setSelectedVariant}
-          currentProfile={selectedExecutor ? profiles?.[selectedExecutor] ?? null : null}
+          currentProfile={
+            selectedExecutor ? (profiles?.[selectedExecutor] ?? null) : null
+          }
         />
         <input
           ref={fileInputRef}

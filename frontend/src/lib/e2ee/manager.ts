@@ -38,7 +38,7 @@ export class E2EEManager {
   /** Get all paired secret identifiers (truncated for display) */
   get pairedSecretIds(): string[] {
     return Array.from(this.contentKeyPairs.keys()).map(
-      (s) => s.substring(0, 8) + '...',
+      (s) => s.substring(0, 8) + '...'
     );
   }
 
@@ -49,7 +49,7 @@ export class E2EEManager {
     const secretBytes = base64ToBytes(base64Secret);
     if (secretBytes.length !== 32) {
       throw new Error(
-        `Master secret must be 32 bytes, got ${secretBytes.length}`,
+        `Master secret must be 32 bytes, got ${secretBytes.length}`
       );
     }
 
@@ -80,7 +80,11 @@ export class E2EEManager {
 
     for (const keypair of this.contentKeyPairs.values()) {
       try {
-        const dek = cryptoUnwrapDek(wrapped, keypair.secretKey, keypair.publicKey);
+        const dek = cryptoUnwrapDek(
+          wrapped,
+          keypair.secretKey,
+          keypair.publicKey
+        );
         return dek;
       } catch {
         // Try next keypair

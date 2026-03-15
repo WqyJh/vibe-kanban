@@ -198,11 +198,7 @@ export const useConversationHistoryPaginated = ({
 
       // Load the last PAGE_SIZE entries
       const startOffset = Math.max(0, totalCount - PAGE_SIZE);
-      const entries = await loadEntriesPage(
-        processId,
-        startOffset,
-        PAGE_SIZE
-      );
+      const entries = await loadEntriesPage(processId, startOffset, PAGE_SIZE);
 
       // Initialize paginated state
       paginatedState.current[processId] = {
@@ -334,7 +330,10 @@ export const useConversationHistoryPaginated = ({
       state.loadedRanges[state.loadedRanges.length - 1]?.end ?? 0;
 
     // Check if we're near the start edge
-    if (firstVisibleIndex - firstLoaded < PRELOAD_THRESHOLD && firstLoaded > 0) {
+    if (
+      firstVisibleIndex - firstLoaded < PRELOAD_THRESHOLD &&
+      firstLoaded > 0
+    ) {
       await preloadEntries(executionProcessId, 'before');
     }
 

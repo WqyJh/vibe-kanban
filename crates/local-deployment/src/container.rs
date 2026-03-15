@@ -992,15 +992,14 @@ impl LocalContainerService {
         let mut prompt = queued_data.message.clone();
 
         // When executor changes, include previous conversation context
-        if executor_changed {
-            if let Some(context) =
+        if executor_changed
+            && let Some(context) =
                 CodingAgentTurn::build_context_summary(&self.db.pool, ctx.session.id).await?
-            {
-                prompt = format!(
-                    "Previous conversation context (from a different executor):\n{}\n\n---\n\nCurrent request:\n{}",
-                    context, prompt
-                );
-            }
+        {
+            prompt = format!(
+                "Previous conversation context (from a different executor):\n{}\n\n---\n\nCurrent request:\n{}",
+                context, prompt
+            );
         }
 
         // Get latest agent turn for session continuity (from coding agent turns)

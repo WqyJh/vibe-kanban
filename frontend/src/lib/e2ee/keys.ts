@@ -19,12 +19,10 @@ export interface ContentKeyPair {
  *
  * Matches Rust: BLAKE2b-512(master_secret || 0x02 || "vkcont__") → take first 32 bytes as secret
  */
-export function deriveContentKeyPair(
-  masterSecret: Uint8Array,
-): ContentKeyPair {
+export function deriveContentKeyPair(masterSecret: Uint8Array): ContentKeyPair {
   if (masterSecret.length !== 32) {
     throw new Error(
-      `Master secret must be 32 bytes, got ${masterSecret.length}`,
+      `Master secret must be 32 bytes, got ${masterSecret.length}`
     );
   }
 

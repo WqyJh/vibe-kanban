@@ -172,13 +172,13 @@ pub async fn follow_up(
 
     // When executor changes, include previous conversation context in the prompt
     // and treat as initial request (no session continuity)
-    if executor_changed {
-        if let Some(context) = CodingAgentTurn::build_context_summary(pool, session.id).await? {
-            prompt = format!(
-                "Previous conversation context (from a different executor):\n{}\n\n---\n\nCurrent request:\n{}",
-                context, prompt
-            );
-        }
+    if executor_changed
+        && let Some(context) = CodingAgentTurn::build_context_summary(pool, session.id).await?
+    {
+        prompt = format!(
+            "Previous conversation context (from a different executor):\n{}\n\n---\n\nCurrent request:\n{}",
+            context, prompt
+        );
     }
 
     let repos = WorkspaceRepo::find_repos_for_workspace(pool, workspace.id).await?;

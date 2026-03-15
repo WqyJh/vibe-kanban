@@ -1,4 +1,10 @@
-export { encryptPayload, decryptPayload, wrapDek, unwrapDek, randomBytes } from './crypto';
+export {
+  encryptPayload,
+  decryptPayload,
+  wrapDek,
+  unwrapDek,
+  randomBytes,
+} from './crypto';
 export { deriveContentKeyPair, type ContentKeyPair } from './keys';
 export {
   encryptToEnvelope,
@@ -9,4 +15,8 @@ export {
   type EncryptedPayload,
 } from './envelope';
 export { E2EEManager } from './manager';
-export { E2EEConnection, type ConnectionOptions, type MachineStatus } from './connection';
+export {
+  E2EEConnection,
+  type ConnectionOptions,
+  type MachineStatus,
+} from './connection';

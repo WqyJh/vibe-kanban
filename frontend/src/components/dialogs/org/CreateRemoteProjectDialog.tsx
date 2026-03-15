@@ -21,7 +21,11 @@ import {
   type Project,
 } from 'shared/remote-types';
 import { getRandomPresetColor, PRESET_COLORS } from '@/lib/colors';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 
 export type CreateRemoteProjectDialogProps = {
   organizationId: string;
@@ -180,14 +184,20 @@ const CreateRemoteProjectDialogImpl =
                       )}
                     />
                   </PopoverTrigger>
-                  <PopoverContent align="start" side="bottom" className="w-auto p-2">
+                  <PopoverContent
+                    align="start"
+                    side="bottom"
+                    className="w-auto p-2"
+                  >
                     <div className="grid grid-cols-6 gap-1">
                       {PRESET_COLORS.map((c) => (
                         <button
                           key={c}
                           type="button"
                           className={`w-6 h-6 rounded cursor-pointer border ${
-                            c === color ? 'ring-2 ring-primary ring-offset-1' : ''
+                            c === color
+                              ? 'ring-2 ring-primary ring-offset-1'
+                              : ''
                           }`}
                           style={{ backgroundColor: `hsl(${c})` }}
                           onClick={() => setColor(c)}

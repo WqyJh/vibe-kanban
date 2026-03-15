@@ -45,14 +45,12 @@ export function useGatewayAuth() {
 
   const checkRegistrationStatus = useCallback(
     async (gatewayUrl: string): Promise<boolean> => {
-      const resp = await fetch(
-        `${gatewayUrl}/api/auth/registration-status`,
-      );
+      const resp = await fetch(`${gatewayUrl}/api/auth/registration-status`);
       if (!resp.ok) return false;
       const data: RegistrationStatus = await resp.json();
       return data.open;
     },
-    [],
+    []
   );
 
   const signup = useCallback(
@@ -60,7 +58,7 @@ export function useGatewayAuth() {
       gatewayUrl: string,
       email: string,
       password: string,
-      name?: string,
+      name?: string
     ) => {
       setLoading(true);
       setError(null);
@@ -93,7 +91,7 @@ export function useGatewayAuth() {
         setLoading(false);
       }
     },
-    [],
+    []
   );
 
   const login = useCallback(
@@ -129,7 +127,7 @@ export function useGatewayAuth() {
         setLoading(false);
       }
     },
-    [],
+    []
   );
 
   const logout = useCallback(() => {

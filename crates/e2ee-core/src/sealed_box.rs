@@ -79,7 +79,7 @@ pub fn unwrap_dek(wrapped: &[u8], recipient_secret: &[u8; 32], recipient_public:
     // Derive same symmetric key
     let mut hasher = Blake2b512::new();
     hasher.update(shared_secret.as_bytes());
-    hasher.update(&ephemeral_public_bytes);
+    hasher.update(ephemeral_public_bytes);
     hasher.update(recipient_public);
     let derived = hasher.finalize();
 

@@ -206,7 +206,8 @@ export const AskUserQuestionBanner = forwardRef<
               <div className="flex flex-wrap gap-base">
                 {currentQuestion.options.map((opt) => {
                   const isSelected =
-                    currentQuestion.multiSelect && multiSelectLabels.has(opt.label);
+                    currentQuestion.multiSelect &&
+                    multiSelectLabels.has(opt.label);
                   return (
                     <button
                       key={opt.label}

@@ -30,7 +30,10 @@ export function AgentSelector({
 }: AgentSelectorProps) {
   const { config } = useUserSystem();
   const sortedAgents = profiles
-    ? getSortedAgents(Object.keys(profiles) as BaseCodingAgent[], config?.agent_order)
+    ? getSortedAgents(
+        Object.keys(profiles) as BaseCodingAgent[],
+        config?.agent_order
+      )
     : [];
   const agents = filterEnabledAgents(sortedAgents, config?.agent_enabled);
   const selectedAgent = selectedExecutorProfile?.executor;
