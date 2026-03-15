@@ -61,9 +61,7 @@ export class E2EEConnection {
   }
 
   /** Subscribe to machine list changes */
-  onMachinesChanged(
-    callback: (machines: MachineStatus[]) => void,
-  ): () => void {
+  onMachinesChanged(callback: (machines: MachineStatus[]) => void): () => void {
     this.machineListeners.add(callback);
     return () => this.machineListeners.delete(callback);
   }
@@ -127,10 +125,7 @@ export class E2EEConnection {
    * Send an HTTP request to the remote machine.
    * This replaces `fetch()` when connected to a remote machine.
    */
-  async remoteFetch(
-    url: string,
-    init?: RequestInit,
-  ): Promise<Response> {
+  async remoteFetch(url: string, init?: RequestInit): Promise<Response> {
     if (!this._connected || !this.options) {
       throw new Error('Not connected');
     }
@@ -143,13 +138,9 @@ export class E2EEConnection {
       if (init.headers instanceof Headers) {
         init.headers.forEach((v, k) => headers.push([k, v]));
       } else if (Array.isArray(init.headers)) {
-        headers.push(
-          ...(init.headers as [string, string][]),
-        );
+        headers.push(...(init.headers as [string, string][]));
       } else {
-        Object.entries(init.headers).forEach(([k, v]) =>
-          headers.push([k, v]),
-        );
+        Object.entries(init.headers).forEach(([k, v]) => headers.push([k, v]));
       }
     }
 
@@ -158,9 +149,7 @@ export class E2EEConnection {
       if (typeof init.body === 'string') {
         body = btoa(init.body);
       } else if (init.body instanceof ArrayBuffer) {
-        body = btoa(
-          String.fromCharCode(...new Uint8Array(init.body)),
-        );
+        body = btoa(String.fromCharCode(...new Uint8Array(init.body)));
       }
     }
 
@@ -174,9 +163,7 @@ export class E2EEConnection {
     };
 
     // Send as forward message (optionally encrypted with DEK)
-    const payload = this.dek
-      ? encryptJson(request, this.dek)
-      : request;
+    const payload = this.dek ? encryptJson(request, this.dek) : request;
 
     this.send({
       type: 'forward',
@@ -196,7 +183,7 @@ export class E2EEConnection {
             reject(new Error('Request timeout'));
           }
         }, 30000);
-      },
+      }
     );
 
     // Decode body from base64
@@ -221,7 +208,7 @@ export class E2EEConnection {
   private handleMessage(
     msg: GatewayMessage,
     connectResolve?: (value: void) => void,
-    connectReject?: (error: Error) => void,
+    connectReject?: (error: Error) => void
   ): void {
     switch (msg.type) {
       case 'auth_ok':
@@ -252,7 +239,7 @@ export class E2EEConnection {
 
       case 'machine_offline':
         this._machines = this._machines.filter(
-          (m) => m.machine_id !== msg.machine_id,
+          (m) => m.machine_id !== msg.machine_id
         );
         this.machineListeners.forEach((cb) => cb(this._machines));
         break;
@@ -266,7 +253,7 @@ export class E2EEConnection {
           try {
             payload = decryptJson(
               payload as unknown as EncryptedPayload,
-              this.dek,
+              this.dek
             );
           } catch (e) {
             console.error('Failed to decrypt payload:', e);
@@ -305,7 +292,7 @@ export class E2EEConnection {
 
       case 'error':
         pending.reject(
-          new Error((payload.message as string) ?? 'Unknown error'),
+          new Error((payload.message as string) ?? 'Unknown error')
         );
         break;
 

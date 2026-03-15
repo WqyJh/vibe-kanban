@@ -1,10 +1,4 @@
-import {
-  useState,
-  useCallback,
-  useMemo,
-  useEffect,
-  useRef,
-} from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import {

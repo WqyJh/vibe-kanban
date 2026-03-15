@@ -313,16 +313,23 @@ const CreateWorkspaceFromPrDialogImpl =
                 <div className="flex items-center gap-2">
                   <Select
                     value={selectedPrNumber?.toString() ?? undefined}
-                    onValueChange={(value) => setSelectedPrNumber(Number(value))}
+                    onValueChange={(value) =>
+                      setSelectedPrNumber(Number(value))
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue
-                        placeholder={t('createWorkspaceFromPr.selectPullRequest')}
+                        placeholder={t(
+                          'createWorkspaceFromPr.selectPullRequest'
+                        )}
                       />
                     </SelectTrigger>
                     <SelectContent>
                       {openPrs.map((pr) => (
-                        <SelectItem key={String(pr.number)} value={String(pr.number)}>
+                        <SelectItem
+                          key={String(pr.number)}
+                          value={String(pr.number)}
+                        >
                           #{String(pr.number)}: {pr.title}
                         </SelectItem>
                       ))}

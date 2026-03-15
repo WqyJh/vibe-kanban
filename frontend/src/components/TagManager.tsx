@@ -131,7 +131,9 @@ export function TagManager() {
                           variant="ghost"
                           size="icon"
                           onClick={() => handleOpenDialog(tag)}
-                          title={t('settings.general.tags.manager.actions.editTag')}
+                          title={t(
+                            'settings.general.tags.manager.actions.editTag'
+                          )}
                           aria-label="edit"
                         >
                           <PencilSimpleIcon className="h-4 w-4" />
@@ -140,7 +142,9 @@ export function TagManager() {
                           variant="ghost"
                           size="icon"
                           onClick={() => handleDelete(tag)}
-                          title={t('settings.general.tags.manager.actions.deleteTag')}
+                          title={t(
+                            'settings.general.tags.manager.actions.deleteTag'
+                          )}
                           aria-label="delete"
                         >
                           <TrashIcon className="h-4 w-4" />

@@ -42,7 +42,7 @@ function fromBase64(b64: string): Uint8Array {
 /** Encrypt arbitrary bytes into an EncryptedPayload envelope */
 export function encryptToEnvelope(
   plaintext: Uint8Array,
-  dek: Uint8Array,
+  dek: Uint8Array
 ): EncryptedPayload {
   const encrypted = encryptPayload(plaintext, dek);
   return {
@@ -54,7 +54,7 @@ export function encryptToEnvelope(
 /** Decrypt an EncryptedPayload envelope back to bytes */
 export function decryptFromEnvelope(
   payload: EncryptedPayload,
-  dek: Uint8Array,
+  dek: Uint8Array
 ): Uint8Array {
   if (payload.t !== 'encrypted') {
     throw new Error('Not an encrypted payload');
@@ -71,10 +71,7 @@ export function encryptJson<T>(value: T, dek: Uint8Array): EncryptedPayload {
 }
 
 /** Decrypt an EncryptedPayload back to a parsed JSON value */
-export function decryptJson<T>(
-  payload: EncryptedPayload,
-  dek: Uint8Array,
-): T {
+export function decryptJson<T>(payload: EncryptedPayload, dek: Uint8Array): T {
   const plaintext = decryptFromEnvelope(payload, dek);
   const jsonStr = new TextDecoder().decode(plaintext);
   return JSON.parse(jsonStr) as T;

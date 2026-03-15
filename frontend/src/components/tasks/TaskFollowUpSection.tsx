@@ -160,9 +160,8 @@ export function TaskFollowUpSection({
   );
 
   // Executor selection - allows changing executor on follow-up
-  const [selectedExecutor, setSelectedExecutor] = useState<BaseCodingAgent | null>(
-    latestProfileId?.executor ?? null
-  );
+  const [selectedExecutor, setSelectedExecutor] =
+    useState<BaseCodingAgent | null>(latestProfileId?.executor ?? null);
 
   // Track if executor was changed from original
   const executorChanged = useMemo(() => {
@@ -358,39 +357,40 @@ export function TaskFollowUpSection({
   // Check if there's a pending approval - users shouldn't be able to type during approvals
   // but should be able to type during question approvals (ask_user_question)
   const { entries } = useEntries();
-  const { hasPendingApproval, hasPendingQuestion, pendingQuestionInfo } = useMemo(() => {
-    let hasPendingApproval = false;
-    let hasPendingQuestion = false;
-    let pendingQuestionInfo: {
-      approvalId: string;
-      executionProcessId: string;
-      question: string;
-    } | null = null;
-    for (const entry of entries) {
-      if (entry.type !== 'NORMALIZED_ENTRY') continue;
-      const entryType = entry.content.entry_type;
-      if (
-        entryType.type === 'tool_use' &&
-        entryType.status.status === 'pending_approval'
-      ) {
-        if (entryType.action_type.action === 'ask_user_question') {
-          hasPendingQuestion = true;
-          // Get the first unanswered question
-          const questions = entryType.action_type.questions;
-          if (questions.length > 0 && entryType.status.approval_id) {
-            pendingQuestionInfo = {
-              approvalId: entryType.status.approval_id,
-              executionProcessId: entry.executionProcessId,
-              question: questions[0].question,
-            };
+  const { hasPendingApproval, hasPendingQuestion, pendingQuestionInfo } =
+    useMemo(() => {
+      let hasPendingApproval = false;
+      let hasPendingQuestion = false;
+      let pendingQuestionInfo: {
+        approvalId: string;
+        executionProcessId: string;
+        question: string;
+      } | null = null;
+      for (const entry of entries) {
+        if (entry.type !== 'NORMALIZED_ENTRY') continue;
+        const entryType = entry.content.entry_type;
+        if (
+          entryType.type === 'tool_use' &&
+          entryType.status.status === 'pending_approval'
+        ) {
+          if (entryType.action_type.action === 'ask_user_question') {
+            hasPendingQuestion = true;
+            // Get the first unanswered question
+            const questions = entryType.action_type.questions;
+            if (questions.length > 0 && entryType.status.approval_id) {
+              pendingQuestionInfo = {
+                approvalId: entryType.status.approval_id,
+                executionProcessId: entry.executionProcessId,
+                question: questions[0].question,
+              };
+            }
+          } else {
+            hasPendingApproval = true;
           }
-        } else {
-          hasPendingApproval = true;
         }
       }
-    }
-    return { hasPendingApproval, hasPendingQuestion, pendingQuestionInfo };
-  }, [entries]);
+      return { hasPendingApproval, hasPendingQuestion, pendingQuestionInfo };
+    }, [entries]);
 
   const { answer: submitQuestionAnswer } = useApprovalMutation();
 
@@ -448,9 +448,9 @@ export function TaskFollowUpSection({
     // Allow sending if conflict instructions, review comments, clicked elements, or message is present
     return Boolean(
       conflictResolutionInstructions ||
-        reviewMarkdown ||
-        clickedMarkdown ||
-        localMessage.trim()
+      reviewMarkdown ||
+      clickedMarkdown ||
+      localMessage.trim()
     );
   }, [
     canTypeFollowUp,
@@ -462,7 +462,8 @@ export function TaskFollowUpSection({
     localMessage,
   ]);
   // Allow editing during question mode
-  const isEditable = !isRetryActive && (!hasPendingApproval || isInQuestionMode);
+  const isEditable =
+    !isRetryActive && (!hasPendingApproval || isInQuestionMode);
 
   const hasAnyScript = true;
 
@@ -879,7 +880,11 @@ export function TaskFollowUpSection({
             <div className="flex-1 flex gap-2">
               <AgentSelector
                 profiles={profiles}
-                selectedExecutorProfile={selectedExecutor ? { executor: selectedExecutor, variant: selectedVariant } : null}
+                selectedExecutorProfile={
+                  selectedExecutor
+                    ? { executor: selectedExecutor, variant: selectedVariant }
+                    : null
+                }
                 onChange={(profile) => {
                   setSelectedExecutor(profile.executor);
                   // Reset variant when executor changes
@@ -1039,10 +1044,15 @@ export function TaskFollowUpSection({
               )}
               <Button
                 onClick={() => {
-                  if (isInQuestionMode && pendingQuestionInfo && localMessage.trim()) {
+                  if (
+                    isInQuestionMode &&
+                    pendingQuestionInfo &&
+                    localMessage.trim()
+                  ) {
                     submitQuestionAnswer({
                       approvalId: pendingQuestionInfo.approvalId,
-                      executionProcessId: pendingQuestionInfo.executionProcessId,
+                      executionProcessId:
+                        pendingQuestionInfo.executionProcessId,
                       answers: [
                         {
                           question: pendingQuestionInfo.question,

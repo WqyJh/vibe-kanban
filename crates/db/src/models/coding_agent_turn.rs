@@ -315,15 +315,15 @@ impl CodingAgentTurn {
         let context_parts: Vec<String> = turns
             .iter()
             .enumerate()
-            .filter_map(|(i, turn)| {
+            .map(|(i, turn)| {
                 let user_msg = turn.prompt.as_deref().unwrap_or("(no message)");
                 let assistant_msg = turn.summary.as_deref().unwrap_or("(no response)");
-                Some(format!(
+                format!(
                     "Turn {}:\nUser: {}\nAssistant: {}",
                     i + 1,
                     user_msg,
                     assistant_msg
-                ))
+                )
             })
             .collect();
 

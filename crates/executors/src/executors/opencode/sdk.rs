@@ -1330,11 +1330,10 @@ async fn process_event_stream(
                 if let Some(status) = data
                     .pointer("/properties/status/type")
                     .and_then(Value::as_str)
+                    && status == "idle"
                 {
-                    if status == "idle" {
-                        let _ = ctx.control_tx.send(ControlEvent::Idle);
-                        return Ok(EventStreamOutcome::Idle);
-                    }
+                    let _ = ctx.control_tx.send(ControlEvent::Idle);
+                    return Ok(EventStreamOutcome::Idle);
                 }
             }
             "session.idle" => {

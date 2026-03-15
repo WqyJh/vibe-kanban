@@ -525,12 +525,14 @@ export function AgentSettings() {
                 </SelectTrigger>
                 <SelectContent>
                   {profiles &&
-                    getSortedAgents(Object.keys(profiles) as BaseCodingAgent[], config?.agent_order)
-                      .map((profileKey) => (
-                        <SelectItem key={profileKey} value={profileKey}>
-                          {profileKey}
-                        </SelectItem>
-                      ))}
+                    getSortedAgents(
+                      Object.keys(profiles) as BaseCodingAgent[],
+                      config?.agent_order
+                    ).map((profileKey) => (
+                      <SelectItem key={profileKey} value={profileKey}>
+                        {profileKey}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
 
@@ -663,13 +665,16 @@ export function AgentSettings() {
                       />
                     </SelectTrigger>
                     <SelectContent>
-                      {getSortedAgents(Object.keys(localParsedProfiles.executors) as BaseCodingAgent[], config?.agent_order).map(
-                        (type) => (
-                          <SelectItem key={type} value={type}>
-                            {type}
-                          </SelectItem>
-                        )
-                      )}
+                      {getSortedAgents(
+                        Object.keys(
+                          localParsedProfiles.executors
+                        ) as BaseCodingAgent[],
+                        config?.agent_order
+                      ).map((type) => (
+                        <SelectItem key={type} value={type}>
+                          {type}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

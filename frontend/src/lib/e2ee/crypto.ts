@@ -17,7 +17,7 @@ export function randomBytes(n: number): Uint8Array {
  */
 export function encryptPayload(
   plaintext: Uint8Array,
-  dek: Uint8Array,
+  dek: Uint8Array
 ): Uint8Array {
   const nonce = randomBytes(24);
   const cipher = xchacha20poly1305(dek, nonce);
@@ -33,13 +33,10 @@ export function encryptPayload(
  * Decrypt data encrypted with XChaCha20-Poly1305.
  * Input format: nonce (24 bytes) || ciphertext
  */
-export function decryptPayload(
-  data: Uint8Array,
-  dek: Uint8Array,
-): Uint8Array {
+export function decryptPayload(data: Uint8Array, dek: Uint8Array): Uint8Array {
   if (data.length < 24) {
     throw new Error(
-      `Data too short: expected at least 24 bytes, got ${data.length}`,
+      `Data too short: expected at least 24 bytes, got ${data.length}`
     );
   }
 
@@ -57,7 +54,7 @@ export function decryptPayload(
  */
 export function wrapDek(
   dek: Uint8Array,
-  recipientPublicKey: Uint8Array,
+  recipientPublicKey: Uint8Array
 ): Uint8Array {
   // Generate ephemeral X25519 keypair using tweetnacl
   const ephemeralSecret = randomBytes(32);
@@ -95,7 +92,7 @@ export function wrapDek(
 export function unwrapDek(
   wrapped: Uint8Array,
   recipientSecretKey: Uint8Array,
-  recipientPublicKey: Uint8Array,
+  recipientPublicKey: Uint8Array
 ): Uint8Array {
   if (wrapped.length < 32 + 24 + 48) {
     throw new Error('Wrapped DEK too short');

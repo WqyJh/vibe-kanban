@@ -44,7 +44,9 @@ export const useConversationHistoryOld = ({
   const loadedProcessIds = useRef<Set<string>>(new Set());
   const allHistoricProcesses = useRef<ExecutionProcess[]>([]);
   // Preloaded entries cache: processId -> { executionProcess, entries }
-  const preloadedEntries = useRef<Map<string, ExecutionProcessStateStore[string]>>(new Map());
+  const preloadedEntries = useRef<
+    Map<string, ExecutionProcessStateStore[string]>
+  >(new Map());
   const [isPreloading, setIsPreloading] = useState(false);
 
   const mergeIntoDisplayed = (
@@ -273,9 +275,7 @@ export const useConversationHistoryOld = ({
             }
 
             // Add duration entry for completed coding agent processes
-            const liveProcess = getLiveExecutionProcess(
-              p.executionProcess.id
-            );
+            const liveProcess = getLiveExecutionProcess(p.executionProcess.id);
             if (!isProcessRunning && liveProcess?.completed_at) {
               const startMs = new Date(
                 liveProcess.started_at as string
@@ -494,7 +494,9 @@ export const useConversationHistoryOld = ({
     if (isPreloading) return;
 
     const remainingProcesses = allHistoricProcesses.current.filter(
-      (p) => !loadedProcessIds.current.has(p.id) && !preloadedEntries.current.has(p.id)
+      (p) =>
+        !loadedProcessIds.current.has(p.id) &&
+        !preloadedEntries.current.has(p.id)
     );
 
     if (remainingProcesses.length === 0) return;
@@ -708,12 +710,7 @@ export const useConversationHistoryOld = ({
     return () => {
       cancelled = true;
     };
-  }, [
-    attempt.id,
-    idListKey,
-    loadInitialEntries,
-    emitEntries,
-  ]); // include idListKey so new processes trigger reload
+  }, [attempt.id, idListKey, loadInitialEntries, emitEntries]); // include idListKey so new processes trigger reload
 
   useEffect(() => {
     const activeProcesses = getActiveAgentProcesses();

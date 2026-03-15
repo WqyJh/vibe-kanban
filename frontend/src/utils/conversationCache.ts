@@ -12,7 +12,6 @@ interface CachedProcessEntries {
   cachedAt: number;
 }
 
-
 let dbInstance: IDBDatabase | null = null;
 let dbInitPromise: Promise<IDBDatabase> | null = null;
 
@@ -172,7 +171,10 @@ export async function clearAllCachedEntries(): Promise<void> {
 /**
  * Check if cached data is stale (older than maxAgeMs)
  */
-export function isCacheStale(cachedAt: number, maxAgeMs: number = 60 * 60 * 1000): boolean {
+export function isCacheStale(
+  cachedAt: number,
+  maxAgeMs: number = 60 * 60 * 1000
+): boolean {
   return Date.now() - cachedAt > maxAgeMs;
 }
 

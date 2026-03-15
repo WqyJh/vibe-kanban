@@ -49,7 +49,11 @@ export function useExecutorSelection({
     useState<BaseCodingAgent | null>(null);
 
   const executorOptions = useMemo(
-    () => getSortedAgents(Object.keys(profiles ?? {}) as BaseCodingAgent[], agentOrder),
+    () =>
+      getSortedAgents(
+        Object.keys(profiles ?? {}) as BaseCodingAgent[],
+        agentOrder
+      ),
     [profiles, agentOrder]
   );
 

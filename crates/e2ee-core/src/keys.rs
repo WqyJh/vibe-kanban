@@ -33,7 +33,7 @@ pub fn derive_auth_keypair(master_secret: &[u8; 32]) -> Result<AuthKeyPair> {
     // BLAKE2b-512 KDF: hash(master_secret || subkey_id || context)
     let mut hasher = Blake2b512::new();
     hasher.update(master_secret);
-    hasher.update(&[1u8]); // subkey_id = 1
+    hasher.update([1u8]); // subkey_id = 1
     hasher.update(b"vkauth__"); // 8-byte context
     let seed_bytes = hasher.finalize();
 
@@ -57,7 +57,7 @@ pub fn derive_content_keypair(master_secret: &[u8; 32]) -> Result<ContentKeyPair
     // BLAKE2b-512 KDF: hash(master_secret || subkey_id || context)
     let mut hasher = Blake2b512::new();
     hasher.update(master_secret);
-    hasher.update(&[2u8]); // subkey_id = 2
+    hasher.update([2u8]); // subkey_id = 2
     hasher.update(b"vkcont__"); // 8-byte context
     let key_bytes = hasher.finalize();
 

@@ -107,12 +107,14 @@ const OnboardingDialogImpl = NiceModal.create<NoProps>(() => {
                 </SelectTrigger>
                 <SelectContent>
                   {profiles &&
-                    getSortedAgents(Object.keys(profiles) as BaseCodingAgent[], config?.agent_order)
-                      .map((agent) => (
-                        <SelectItem key={agent} value={agent}>
-                          {agent}
-                        </SelectItem>
-                      ))}
+                    getSortedAgents(
+                      Object.keys(profiles) as BaseCodingAgent[],
+                      config?.agent_order
+                    ).map((agent) => (
+                      <SelectItem key={agent} value={agent}>
+                        {agent}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
 

@@ -210,7 +210,8 @@ function ProcessesTab({ sessionId }: ProcessesTabProps) {
                       {getStatusIcon(process.status)}
                       <div className="min-w-0">
                         <h3 className="font-medium text-sm">
-                          {RUN_REASON_LABELS[process.run_reason] ?? process.run_reason}
+                          {RUN_REASON_LABELS[process.run_reason] ??
+                            process.run_reason}
                         </h3>
                         <p
                           className="text-sm text-muted-foreground mt-1 truncate"

@@ -177,9 +177,7 @@ function App() {
       <UserSystemProvider>
         <ClickedElementsProvider>
           <ProjectProvider>
-            <HotkeysProvider
-              initiallyActiveScopes={['global', 'projects']}
-            >
+            <HotkeysProvider initiallyActiveScopes={['global', 'projects']}>
               <AppContent />
             </HotkeysProvider>
           </ProjectProvider>

@@ -87,7 +87,7 @@ export function useE2EE() {
         setConnecting(false);
       }
     },
-    [],
+    []
   );
 
   const disconnect = useCallback(() => {

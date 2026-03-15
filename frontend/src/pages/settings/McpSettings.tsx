@@ -290,12 +290,14 @@ export function McpSettings() {
               </SelectTrigger>
               <SelectContent>
                 {profiles &&
-                  getSortedAgents(Object.keys(profiles) as BaseCodingAgent[], config?.agent_order)
-                    .map((profileKey) => (
-                      <SelectItem key={profileKey} value={profileKey}>
-                        {profileKey}
-                      </SelectItem>
-                    ))}
+                  getSortedAgents(
+                    Object.keys(profiles) as BaseCodingAgent[],
+                    config?.agent_order
+                  ).map((profileKey) => (
+                    <SelectItem key={profileKey} value={profileKey}>
+                      {profileKey}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
             <p className="text-sm text-muted-foreground">

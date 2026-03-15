@@ -90,7 +90,7 @@ pub async fn run_bridge(creds: &Credentials, local_port: u16) -> Result<()> {
     });
 
     ws_sender
-        .send(Message::Text(register_msg.to_string().into()))
+        .send(Message::Text(register_msg.to_string()))
         .await?;
 
     info!("Registered as machine_id={machine_id}, hostname={hostname}");
@@ -101,7 +101,7 @@ pub async fn run_bridge(creds: &Credentials, local_port: u16) -> Result<()> {
     // Spawn task to forward outgoing messages
     let send_task = tokio::spawn(async move {
         while let Some(msg) = rx.recv().await {
-            if ws_sender.send(Message::Text(msg.into())).await.is_err() {
+            if ws_sender.send(Message::Text(msg)).await.is_err() {
                 break;
             }
         }

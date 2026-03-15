@@ -426,10 +426,10 @@ impl ClaudeCode {
                 return;
             }
 
-            if let Some(mode) = permission_mode {
-                if let Err(e) = protocol_peer.set_permission_mode(mode).await {
-                    tracing::warn!("Failed to set permission mode to {mode}: {e}");
-                }
+            if let Some(mode) = permission_mode
+                && let Err(e) = protocol_peer.set_permission_mode(mode).await
+            {
+                tracing::warn!("Failed to set permission mode to {mode}: {e}");
             }
 
             // Send user message
