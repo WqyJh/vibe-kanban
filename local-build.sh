@@ -56,6 +56,7 @@ echo "🔨 Building frontend..."
 echo "🔨 Building Rust binaries..."
 cargo build --release --manifest-path Cargo.toml
 cargo build --release --bin mcp_task_server --manifest-path Cargo.toml
+cargo build --release --bin e2ee-gateway --manifest-path Cargo.toml
 
 echo "📦 Creating distribution package..."
 
@@ -77,11 +78,18 @@ zip -q vibe-kanban-review.zip vibe-kanban-review
 rm -f vibe-kanban-review
 mv vibe-kanban-review.zip npx-cli/dist/$PLATFORM/vibe-kanban-review.zip
 
+# Copy the Gateway binary
+cp ${CARGO_TARGET_DIR}/release/e2ee-gateway vibe-kanban-gateway
+zip -q vibe-kanban-gateway.zip vibe-kanban-gateway
+rm -f vibe-kanban-gateway
+mv vibe-kanban-gateway.zip npx-cli/dist/$PLATFORM/vibe-kanban-gateway.zip
+
 echo "✅ Build complete!"
 echo "📁 Files created:"
 echo "   - npx-cli/dist/$PLATFORM/vibe-kanban.zip"
 echo "   - npx-cli/dist/$PLATFORM/vibe-kanban-mcp.zip"
 echo "   - npx-cli/dist/$PLATFORM/vibe-kanban-review.zip"
+echo "   - npx-cli/dist/$PLATFORM/vibe-kanban-gateway.zip"
 echo ""
 echo "🚀 To test locally, run:"
 echo "   cd npx-cli && node bin/cli.js"
