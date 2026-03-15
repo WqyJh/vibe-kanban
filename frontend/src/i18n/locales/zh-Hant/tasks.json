@@ -298,6 +298,7 @@
     "diffs": "差異",
     "gitActions": "Git 操作",
     "tryAgain": "重試",
+    "continue": "繼續",
     "runSetup": "執行設定",
     "setupHelpText": "{{agent}} 未正確設定。點擊執行設定以安裝並登入。",
     "devScriptMissingTooltip": "要啟動開發伺服器，請為此專案新增開發腳本"

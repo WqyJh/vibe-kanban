@@ -362,6 +362,7 @@
     "diffs": "Diffs",
     "gitActions": "Actions Git",
     "tryAgain": "Réessayer",
+    "continue": "Continuer",
     "runSetup": "Exécuter la configuration",
     "setupHelpText": "{{agent}} n'est pas configuré correctement. Cliquez sur 'Exécuter la configuration' pour l'installer et vous connecter.",
     "devScriptMissingTooltip": "Pour démarrer le serveur de développement, ajoutez un script de développement à ce projet"

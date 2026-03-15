@@ -86,6 +86,7 @@
     "viewDevLogs": "View dev server logs",
     "viewHistory": "View attempt history",
     "tryAgain": "Try Again",
+    "continue": "Continue",
     "runSetup": "セットアップを実行",
     "setupHelpText": "{{agent}}が正しく設定されていません。「セットアップを実行」をクリックしてインストールとログインを行ってください。",
     "devScriptMissingTooltip": "To start the dev server, add a dev script to this project"

@@ -24,7 +24,7 @@ import { useUserSystem } from '@/components/ConfigProvider';
 import { getIdeName } from '@/components/ide/IdeIcon';
 import { useProject } from '@/contexts/ProjectContext';
 import { useQuery } from '@tanstack/react-query';
-import { attemptsApi } from '@/lib/api';
+import { attemptsApi, sessionsApi } from '@/lib/api';
 import {
   BaseAgentCapability,
   type BaseCodingAgent,
@@ -122,6 +122,25 @@ export function NextActionCard({
       taskId: attempt.task_id,
     });
   }, [attempt?.task_id]);
+
+  const handleContinue = useCallback(async () => {
+    if (!sessionId || !attempt?.session?.executor) return;
+    try {
+      await sessionsApi.followUp(sessionId, {
+        prompt: 'continue',
+        executor_profile_id: {
+          executor: attempt.session.executor as BaseCodingAgent,
+          variant: null,
+        },
+        retry_process_id: null,
+        force_when_dirty: null,
+        perform_git_reset: null,
+        allow_executor_change: null,
+      });
+    } catch (error) {
+      console.error('Failed to send continue:', error);
+    }
+  }, [sessionId, attempt?.session?.executor]);
 
   const handleGitActions = useCallback(() => {
     if (!attemptId) return;
@@ -222,16 +241,28 @@ export function NextActionCard({
               </Button>
             ) : (
               execution_processes <= 2 && (
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={handleTryAgain}
-                  disabled={!attempt?.task_id}
-                  className="text-sm w-full sm:w-auto"
-                  aria-label={t('attempt.tryAgain')}
-                >
-                  {t('attempt.tryAgain')}
-                </Button>
+                <>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleTryAgain}
+                    disabled={!attempt?.task_id}
+                    className="text-sm w-full sm:w-auto"
+                    aria-label={t('attempt.tryAgain')}
+                  >
+                    {t('attempt.tryAgain')}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleContinue}
+                    disabled={!attempt?.session?.executor}
+                    className="text-sm w-full sm:w-auto"
+                    aria-label={t('attempt.continue')}
+                  >
+                    {t('attempt.continue')}
+                  </Button>
+                </>
               )
             ))}
 
