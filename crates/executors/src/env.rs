@@ -139,6 +139,22 @@ impl ExecutionEnv {
     }
 }
 
+/// Remove vibe-kanban's port-related environment variables from a command.
+///
+/// This prevents child processes (code agents, dev servers) from inheriting
+/// vibe-kanban's port configuration, which could cause port conflicts when
+/// the child process tries to start its own server.
+///
+/// - `PORT` / `BACKEND_PORT`: used by vibe-kanban's Rust backend
+/// - `FRONTEND_PORT`: used by vibe-kanban's Vite dev server
+/// - `HOST`: used by vibe-kanban to bind its server address
+pub fn remove_vibe_kanban_port_env(command: &mut Command) {
+    command.env_remove("PORT");
+    command.env_remove("BACKEND_PORT");
+    command.env_remove("FRONTEND_PORT");
+    command.env_remove("HOST");
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -17,7 +17,7 @@ use workspace_utils::{
 
 use crate::{
     command::{CmdOverrides, CommandBuildError, CommandBuilder, apply_overrides},
-    env::ExecutionEnv,
+    env::{ExecutionEnv, remove_vibe_kanban_port_env},
     executors::{
         AppendPrompt, AvailabilityInfo, ExecutorError, SpawnedChild, StandardCodingAgentExecutor,
     },
@@ -99,6 +99,9 @@ impl StandardCodingAgentExecutor for CursorAgent {
             .with_profile(&self.cmd)
             .apply_to_command(&mut command);
 
+        // Remove vibe-kanban's port env vars to prevent conflicts
+        remove_vibe_kanban_port_env(&mut command);
+
         let mut child = command.group_spawn()?;
 
         if let Some(mut stdin) = child.inner().stdin.take() {
@@ -139,6 +142,9 @@ impl StandardCodingAgentExecutor for CursorAgent {
         env.clone()
             .with_profile(&self.cmd)
             .apply_to_command(&mut command);
+
+        // Remove vibe-kanban's port env vars to prevent conflicts
+        remove_vibe_kanban_port_env(&mut command);
 
         let mut child = command.group_spawn()?;
 

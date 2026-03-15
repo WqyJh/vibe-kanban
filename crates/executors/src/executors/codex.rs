@@ -48,7 +48,7 @@ use self::{
 use crate::{
     approvals::ExecutorApprovalService,
     command::{CmdOverrides, CommandBuildError, CommandBuilder, CommandParts, apply_overrides},
-    env::ExecutionEnv,
+    env::{ExecutionEnv, remove_vibe_kanban_port_env},
     executors::{
         AppendPrompt, AvailabilityInfo, ExecutorError, ExecutorExitResult, SlashCommandDescription,
         SpawnedChild, StandardCodingAgentExecutor,
@@ -471,6 +471,9 @@ impl Codex {
         env.clone()
             .with_profile(&self.cmd)
             .apply_to_command(&mut process);
+
+        // Remove vibe-kanban's port env vars to prevent conflicts
+        remove_vibe_kanban_port_env(&mut process);
 
         let mut child = process.group_spawn()?;
 
