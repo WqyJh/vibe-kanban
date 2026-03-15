@@ -136,6 +136,13 @@ const makeRequest = async (url: string, options: RequestInit = {}) => {
     headers.set('Content-Type', 'application/json');
   }
 
+  // In gateway mode, route through E2EE connection to the remote daemon
+  const { getGatewayConnection } = await import('@/lib/gateway-mode');
+  const conn = getGatewayConnection();
+  if (conn) {
+    return conn.remoteFetch(url, { ...options, headers });
+  }
+
   return fetch(url, {
     ...options,
     headers,
@@ -1093,17 +1100,26 @@ export const profilesApi = {
   },
 };
 
+/** Upload helper: routes FormData through E2EE in gateway mode */
+const uploadFormData = async (
+  url: string,
+  formData: FormData
+): Promise<Response> => {
+  const { getGatewayConnection } = await import('@/lib/gateway-mode');
+  const conn = getGatewayConnection();
+  if (conn) {
+    return conn.remoteFetch(url, { method: 'POST', body: formData });
+  }
+  return fetch(url, { method: 'POST', body: formData, credentials: 'include' });
+};
+
 // Images API
 export const imagesApi = {
   upload: async (file: File): Promise<ImageResponse> => {
     const formData = new FormData();
     formData.append('image', file);
 
-    const response = await fetch('/api/images/upload', {
-      method: 'POST',
-      body: formData,
-      credentials: 'include',
-    });
+    const response = await uploadFormData('/api/images/upload', formData);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -1121,11 +1137,10 @@ export const imagesApi = {
     const formData = new FormData();
     formData.append('image', file);
 
-    const response = await fetch(`/api/images/task/${taskId}/upload`, {
-      method: 'POST',
-      body: formData,
-      credentials: 'include',
-    });
+    const response = await uploadFormData(
+      `/api/images/task/${taskId}/upload`,
+      formData
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -1150,13 +1165,9 @@ export const imagesApi = {
     const formData = new FormData();
     formData.append('image', file);
 
-    const response = await fetch(
+    const response = await uploadFormData(
       `/api/task-attempts/${attemptId}/images/upload`,
-      {
-        method: 'POST',
-        body: formData,
-        credentials: 'include',
-      }
+      formData
     );
 
     if (!response.ok) {

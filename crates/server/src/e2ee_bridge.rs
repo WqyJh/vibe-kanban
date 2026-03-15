@@ -2,11 +2,16 @@ use anyhow::{Context, Result};
 use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
 use futures_util::{SinkExt, StreamExt};
 use serde::Deserialize;
-use tokio::sync::mpsc;
+use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::{mpsc, Mutex};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use tracing::{error, info, warn};
 
 use crate::{e2ee_config::Credentials, e2ee_crypto::BridgeCryptoService};
+
+/// Active WebSocket sub-connections (id → sender to local WS)
+type WsConnections = Arc<Mutex<HashMap<u32, mpsc::UnboundedSender<String>>>>;
 
 /// Messages from gateway → daemon
 #[derive(Deserialize)]
@@ -108,6 +113,7 @@ pub async fn run_bridge(creds: &Credentials, local_port: u16) -> Result<()> {
 
     let local_base = format!("http://127.0.0.1:{local_port}");
     let http_client = reqwest::Client::new();
+    let ws_connections: WsConnections = Arc::new(Mutex::new(HashMap::new()));
 
     info!("Bridge active — proxying to {local_base}, waiting for WebUI connections...");
 
@@ -147,17 +153,11 @@ pub async fn run_bridge(creds: &Credentials, local_port: u16) -> Result<()> {
                 let base = local_base.clone();
                 let crypto_content_pk = crypto.content_keypair.public_key;
                 let crypto_content_sk = crypto.content_keypair.secret_key;
+                let ws_conns = ws_connections.clone();
 
                 tokio::spawn(async move {
-                    if let Err(e) = handle_forward(
-                        payload,
-                        &client,
-                        &base,
-                        &crypto_content_pk,
-                        &crypto_content_sk,
-                        &tx,
-                    )
-                    .await
+                    if let Err(e) =
+                        handle_forward(payload, &client, &base, &crypto_content_pk, &crypto_content_sk, &tx, &ws_conns).await
                     {
                         warn!("Forward handling error: {e}");
                     }
@@ -180,6 +180,15 @@ pub async fn run_bridge(creds: &Credentials, local_port: u16) -> Result<()> {
     Ok(())
 }
 
+/// Send a bridge response back through the gateway
+fn send_response(tx: &mpsc::UnboundedSender<String>, response: e2ee_core::BridgeResponse) {
+    let fwd_msg = serde_json::json!({
+        "type": "forward",
+        "payload": response,
+    });
+    let _ = tx.send(fwd_msg.to_string());
+}
+
 /// Handle a forwarded message from the gateway: decrypt, proxy, encrypt, send back
 async fn handle_forward(
     payload: serde_json::Value,
@@ -188,68 +197,153 @@ async fn handle_forward(
     _content_pk: &[u8; 32],
     _content_sk: &[u8; 32],
     tx: &mpsc::UnboundedSender<String>,
+    ws_connections: &WsConnections,
 ) -> Result<()> {
     if e2ee_core::is_encrypted_payload(&payload) {
         warn!("Received encrypted payload — proxy not yet fully implemented");
-    } else {
-        let request: e2ee_core::BridgeRequest =
-            serde_json::from_value(payload).context("Failed to parse BridgeRequest")?;
+        return Ok(());
+    }
 
-        match request {
-            e2ee_core::BridgeRequest::HttpRequest {
+    let request: e2ee_core::BridgeRequest = serde_json::from_value(payload)
+        .context("Failed to parse BridgeRequest")?;
+
+    match request {
+        e2ee_core::BridgeRequest::HttpRequest {
+            id,
+            method,
+            path,
+            headers,
+            body,
+        } => {
+            let url = format!("{local_base}{path}");
+            let method: reqwest::Method = method.parse().context("Invalid HTTP method")?;
+
+            let mut req_builder = client.request(method, &url);
+            for (key, value) in &headers {
+                req_builder = req_builder.header(key, value);
+            }
+
+            if let Some(body_b64) = body {
+                let body_bytes = BASE64.decode(&body_b64)?;
+                req_builder = req_builder.body(body_bytes);
+            }
+
+            let resp = req_builder.send().await?;
+            let status = resp.status().as_u16();
+            let resp_headers: Vec<(String, String)> = resp
+                .headers()
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_str().unwrap_or("").to_string()))
+                .collect();
+            let body_bytes = resp.bytes().await?;
+
+            send_response(tx, e2ee_core::BridgeResponse::HttpResponse {
                 id,
-                method,
-                path,
-                headers,
-                body,
-            } => {
-                let url = format!("{local_base}{path}");
-                let method: reqwest::Method = method.parse().context("Invalid HTTP method")?;
+                status,
+                headers: resp_headers,
+                body: BASE64.encode(&body_bytes),
+            });
+        }
 
-                let mut req_builder = client.request(method, &url);
-                for (key, value) in &headers {
-                    req_builder = req_builder.header(key, value);
+        e2ee_core::BridgeRequest::WsOpen { id, path, query } => {
+            let ws_url = {
+                let base = local_base.replace("http://", "ws://").replace("https://", "wss://");
+                match query {
+                    Some(q) => format!("{base}{path}?{q}"),
+                    None => format!("{base}{path}"),
                 }
+            };
 
-                if let Some(body_b64) = body {
-                    let body_bytes = BASE64.decode(&body_b64)?;
-                    req_builder = req_builder.body(body_bytes);
+            info!("Opening WS sub-connection id={id} to {ws_url}");
+
+            match connect_async(&ws_url).await {
+                Ok((ws_stream, _)) => {
+                    let (mut ws_send, mut ws_recv) = ws_stream.split();
+
+                    // Channel for sending data from bridge → local WS
+                    let (sub_tx, mut sub_rx) = mpsc::unbounded_channel::<String>();
+                    ws_connections.lock().await.insert(id, sub_tx);
+
+                    // Confirm opened
+                    send_response(tx, e2ee_core::BridgeResponse::WsOpened { id });
+
+                    // Task: local WS → gateway (forward data from local WS back through bridge)
+                    let tx_recv = tx.clone();
+                    let ws_conns_recv = ws_connections.clone();
+                    tokio::spawn(async move {
+                        while let Some(msg) = ws_recv.next().await {
+                            match msg {
+                                Ok(Message::Text(text)) => {
+                                    send_response(&tx_recv, e2ee_core::BridgeResponse::WsData {
+                                        id,
+                                        data: BASE64.encode(text.as_bytes()),
+                                    });
+                                }
+                                Ok(Message::Binary(bin)) => {
+                                    send_response(&tx_recv, e2ee_core::BridgeResponse::WsData {
+                                        id,
+                                        data: BASE64.encode(&bin),
+                                    });
+                                }
+                                Ok(Message::Close(_)) => break,
+                                Err(_) => break,
+                                _ => {}
+                            }
+                        }
+                        // WS closed — notify and clean up
+                        send_response(&tx_recv, e2ee_core::BridgeResponse::WsClosed { id });
+                        ws_conns_recv.lock().await.remove(&id);
+                    });
+
+                    // Task: gateway → local WS (forward data from bridge to local WS)
+                    tokio::spawn(async move {
+                        while let Some(data) = sub_rx.recv().await {
+                            if ws_send.send(Message::Text(data)).await.is_err() {
+                                break;
+                            }
+                        }
+                    });
                 }
-
-                let resp = req_builder.send().await?;
-                let status = resp.status().as_u16();
-                let resp_headers: Vec<(String, String)> = resp
-                    .headers()
-                    .iter()
-                    .map(|(k, v)| (k.to_string(), v.to_str().unwrap_or("").to_string()))
-                    .collect();
-                let body_bytes = resp.bytes().await?;
-
-                let response = e2ee_core::BridgeResponse::HttpResponse {
-                    id,
-                    status,
-                    headers: resp_headers,
-                    body: BASE64.encode(&body_bytes),
-                };
-
-                let fwd_msg = serde_json::json!({
-                    "type": "forward",
-                    "payload": response,
-                });
-                tx.send(fwd_msg.to_string())?;
-            }
-            e2ee_core::BridgeRequest::Ping { id } => {
-                let response = e2ee_core::BridgeResponse::Pong { id };
-                let fwd_msg = serde_json::json!({
-                    "type": "forward",
-                    "payload": response,
-                });
-                tx.send(fwd_msg.to_string())?;
-            }
-            _ => {
-                warn!("Unhandled bridge request type");
+                Err(e) => {
+                    warn!("WS sub-connection failed for id={id}: {e}");
+                    send_response(tx, e2ee_core::BridgeResponse::Error {
+                        id,
+                        message: format!("WebSocket connect failed: {e}"),
+                    });
+                }
             }
         }
+
+        e2ee_core::BridgeRequest::WsData { id, data } => {
+            let decoded = BASE64.decode(&data).context("Invalid base64 in WsData")?;
+            let text = String::from_utf8(decoded).context("Invalid UTF-8 in WsData")?;
+            let conns = ws_connections.lock().await;
+            if let Some(sub_tx) = conns.get(&id) {
+                let _ = sub_tx.send(text);
+            } else {
+                warn!("WsData for unknown sub-connection id={id}");
+            }
+        }
+
+        e2ee_core::BridgeRequest::WsClose { id } => {
+            info!("Closing WS sub-connection id={id}");
+            // Removing the sender drops it, which causes the sub_rx loop to end,
+            // which causes the ws_send task to close the local WS.
+            ws_connections.lock().await.remove(&id);
+        }
+
+        e2ee_core::BridgeRequest::Ping { id } => {
+            send_response(tx, e2ee_core::BridgeResponse::Pong { id });
+        }
+
+        e2ee_core::BridgeRequest::SseSubscribe { id, .. } => {
+            send_response(tx, e2ee_core::BridgeResponse::Error {
+                id,
+                message: "SSE not yet supported".to_string(),
+            });
+        }
+
+        e2ee_core::BridgeRequest::SseUnsubscribe { .. } => {}
     }
 
     Ok(())

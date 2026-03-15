@@ -5,6 +5,16 @@
  * When connected, replaces direct HTTP calls with encrypted messages.
  */
 import { encryptJson, decryptJson, type EncryptedPayload } from './envelope';
+import { RemoteWs } from './remoteWs';
+
+/** Convert Uint8Array to base64, handling large arrays without stack overflow */
+function uint8ToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]!);
+  }
+  return btoa(binary);
+}
 
 export interface ConnectionOptions {
   gatewayUrl: string;
@@ -46,6 +56,8 @@ export class E2EEConnection {
   private dek: Uint8Array | null = null;
   private pendingRequests: Map<number, PendingRequest> = new Map();
   private nextRequestId = 1;
+  private nextWsStreamId = 1;
+  private wsStreams: Map<number, RemoteWs> = new Map();
   private options: ConnectionOptions | null = null;
   private _connected = false;
   private _machines: MachineStatus[] = [];
@@ -102,6 +114,12 @@ export class E2EEConnection {
 
   /** Disconnect from the gateway */
   disconnect(): void {
+    // Close all remote WS streams
+    for (const [id, stream] of this.wsStreams) {
+      stream._onClosed(1001, 'Disconnected');
+      this.wsStreams.delete(id);
+    }
+
     if (this.ws) {
       this.ws.close();
       this.ws = null;
@@ -132,7 +150,7 @@ export class E2EEConnection {
 
     const id = this.nextRequestId++;
     const method = init?.method ?? 'GET';
-    const headers: [string, string][] = [];
+    let headers: [string, string][] = [];
 
     if (init?.headers) {
       if (init.headers instanceof Headers) {
@@ -147,9 +165,26 @@ export class E2EEConnection {
     let body: string | undefined;
     if (init?.body) {
       if (typeof init.body === 'string') {
-        body = btoa(init.body);
+        // Encode UTF-8 string to base64
+        body = btoa(unescape(encodeURIComponent(init.body)));
       } else if (init.body instanceof ArrayBuffer) {
-        body = btoa(String.fromCharCode(...new Uint8Array(init.body)));
+        body = uint8ToBase64(new Uint8Array(init.body));
+      } else if (init.body instanceof FormData) {
+        // Serialize FormData to multipart/form-data bytes
+        const blob = await new Response(init.body).blob();
+        // Extract the boundary from the generated Content-Type
+        const contentType =
+          new Response(init.body).headers.get('Content-Type') ?? '';
+        if (contentType) {
+          // Replace Content-Type header with the auto-generated multipart one
+          headers = headers.filter(([k]) => k.toLowerCase() !== 'content-type');
+          headers.push(['content-type', contentType]);
+        }
+        const arrayBuf = await blob.arrayBuffer();
+        body = uint8ToBase64(new Uint8Array(arrayBuf));
+      } else if (init.body instanceof Blob) {
+        const arrayBuf = await init.body.arrayBuffer();
+        body = uint8ToBase64(new Uint8Array(arrayBuf));
       }
     }
 
@@ -171,18 +206,18 @@ export class E2EEConnection {
       payload,
     });
 
-    // Wait for response
+    // Wait for response (longer timeout for uploads)
+    const timeoutMs = body && body.length > 10000 ? 120000 : 30000;
     const response = await new Promise<RemoteHttpResponse>(
       (resolve, reject) => {
         this.pendingRequests.set(id, { resolve, reject });
 
-        // Timeout after 30 seconds
         setTimeout(() => {
           if (this.pendingRequests.has(id)) {
             this.pendingRequests.delete(id);
             reject(new Error('Request timeout'));
           }
-        }, 30000);
+        }, timeoutMs);
       }
     );
 
@@ -203,6 +238,82 @@ export class E2EEConnection {
       status: response.status,
       headers: respHeaders,
     });
+  }
+
+  /**
+   * Open a WebSocket stream to the remote machine.
+   * Returns a WebSocket-compatible object that can be used as a drop-in
+   * replacement for `new WebSocket(url)`.
+   */
+  openWsStream(path: string, query?: string): RemoteWs {
+    if (!this._connected || !this.options) {
+      throw new Error('Not connected');
+    }
+
+    const id = this.nextWsStreamId++;
+    const remote = new RemoteWs(
+      id,
+      (wsId, data) => this.sendWsData(wsId, data),
+      (wsId) => this.closeWsStream(wsId)
+    );
+    this.wsStreams.set(id, remote);
+
+    // Send WsOpen request via the bridge
+    const request = {
+      type: 'ws_open' as const,
+      id,
+      path,
+      ...(query ? { query } : {}),
+    };
+
+    const payload = this.dek ? encryptJson(request, this.dek) : request;
+    this.send({
+      type: 'forward',
+      machine_id: this.options.machineId,
+      payload,
+    });
+
+    return remote;
+  }
+
+  /** Send data over a remote WebSocket stream */
+  private sendWsData(id: number, base64Data: string): void {
+    if (!this._connected || !this.options) return;
+
+    const request = {
+      type: 'ws_data' as const,
+      id,
+      data: base64Data,
+    };
+
+    const payload = this.dek ? encryptJson(request, this.dek) : request;
+    this.send({
+      type: 'forward',
+      machine_id: this.options.machineId,
+      payload,
+    });
+  }
+
+  /** Close a remote WebSocket stream */
+  private closeWsStream(id: number): void {
+    if (!this._connected || !this.options) {
+      this.wsStreams.delete(id);
+      return;
+    }
+
+    const request = {
+      type: 'ws_close' as const,
+      id,
+    };
+
+    const payload = this.dek ? encryptJson(request, this.dek) : request;
+    this.send({
+      type: 'forward',
+      machine_id: this.options.machineId,
+      payload,
+    });
+
+    this.wsStreams.delete(id);
   }
 
   private handleMessage(
@@ -276,6 +387,34 @@ export class E2EEConnection {
     const type = payload.type as string;
     const id = payload.id as number;
 
+    // Handle WebSocket sub-connection responses
+    if (type === 'ws_opened') {
+      const stream = this.wsStreams.get(id);
+      if (stream) stream._onOpened();
+      return;
+    }
+
+    if (type === 'ws_data') {
+      const stream = this.wsStreams.get(id);
+      if (stream) {
+        // Decode base64 data back to UTF-8 string
+        const raw = payload.data as string;
+        const decoded = decodeURIComponent(escape(atob(raw)));
+        stream._onData(decoded);
+      }
+      return;
+    }
+
+    if (type === 'ws_closed') {
+      const stream = this.wsStreams.get(id);
+      if (stream) {
+        stream._onClosed();
+        this.wsStreams.delete(id);
+      }
+      return;
+    }
+
+    // Handle HTTP request/response pending
     if (!id || !this.pendingRequests.has(id)) return;
 
     const pending = this.pendingRequests.get(id)!;

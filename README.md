@@ -50,6 +50,22 @@ Make sure you have authenticated with your favourite coding agent. A full list o
 npx @wqyjh/vibe-kanban
 ```
 
+## E2EE Remote Access
+
+Vibe Kanban supports end-to-end encrypted remote access. You can securely access your Kanban board from any browser, even when your machine is behind a firewall. The gateway server only sees encrypted data — your content is never exposed.
+
+```
+Browser (holds keys)  ←──HTTPS──→  Gateway (zero-knowledge)  ←──WSS──→  Your Machine (vibe-kanban)
+```
+
+**How it works:**
+
+1. **Deploy the Gateway** on a public server — it serves the Web UI and handles encrypted message routing
+2. **Connect your machine** — the local `vibe-kanban` server connects to the gateway automatically
+3. **Open the Gateway URL in a browser** — log in, enter your master secret, select your machine, and use the full vibe-kanban interface
+
+All API calls and WebSocket streams are transparently encrypted in the browser before being sent through the gateway. See the [E2EE documentation](development/E2EE.md) for details.
+
 ## Documentation
 
 Please head to the [website](https://vibekanban.com/docs) for the latest documentation and user guides.

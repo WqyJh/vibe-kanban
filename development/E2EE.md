@@ -1,8 +1,12 @@
 # End-to-End Encryption (E2EE) — Remote Access
 
-Vibe Kanban supports end-to-end encrypted remote access, allowing you to securely use the WebUI from any browser to manage a Kanban board running on a remote machine. The gateway server acts as a message router but **never** has access to your data — all content is encrypted between your browser and the machine running `vibe-kanban`.
+Vibe Kanban supports end-to-end encrypted remote access, allowing you to securely use the Web UI from any browser to manage a Kanban board running on a remote machine. The gateway server acts as a zero-knowledge message router — **it never has access to your data**. All content is encrypted between your browser and the machine running `vibe-kanban`.
 
 ## Architecture
+
+```
+Browser (holds keys)  ←──HTTPS──→  Gateway (zero-knowledge)  ←──WSS──→  Your Machine (vibe-kanban)
+```
 
 ```
 ┌──────────────┐                              ┌──────────────────────┐
@@ -10,52 +14,31 @@ Vibe Kanban supports end-to-end encrypted remote access, allowing you to securel
 │  (vibe-kanban│                              │     Gateway          │
 │   server)    │                              │     (e2ee-gateway)   │
 ├──────────────┤                              │                      │
-│  Machine B   │◄── Encrypted messages ──────►│  - User accounts     │
-│  (vibe-kanban│                              │  - Device keys       │
+│  Machine B   │◄── Encrypted messages ──────►│  - Serves Web UI     │
+│  (vibe-kanban│                              │  - User accounts     │
 │   server)    │                              │  - Message routing   │
 └──────────────┘                              └──────────┬───────────┘
                                                          │
 ┌──────────────┐                                         │
 │  Browser     │◄── Encrypted messages ─────────────────►┘
-│  (WebUI)     │
+│  (Web UI)    │
 └──────────────┘
 ```
 
 **Key properties:**
 - The gateway cannot decrypt any content — it only routes encrypted messages
+- The gateway serves the complete vibe-kanban Web UI — no local installation needed on the client
 - Multiple machines can register to the same gateway
 - The browser derives the same encryption keys from a shared master secret
 - All operations are scoped per-user — users cannot access each other's machines
-
-## Components
-
-| Component | Location | Purpose |
-|-----------|----------|---------|
-| `e2ee-core` | `crates/e2ee-core/` | Shared cryptography library (Rust) |
-| `e2ee-gateway` | `crates/e2ee-gateway/` | Gateway server — user auth + message routing |
-| Bridge (in server) | `crates/server/src/e2ee_bridge.rs` | Connects local server to gateway |
-| Frontend client | `frontend/src/lib/e2ee/` | Browser-side encryption + gateway connection |
 
 ## Quick Start
 
 ### 1. Deploy the Gateway
 
-Build and run the gateway server:
+Deploy the `e2ee-gateway` binary on a server with a public IP or domain. The gateway is a single binary that includes the Web UI.
 
-```bash
-# Build
-pnpm run gateway:build
-
-# Run (development)
-pnpm run gateway:dev
-
-# Or directly:
-GATEWAY_PORT=9090 cargo run --bin e2ee-gateway
-```
-
-The first user to sign up automatically becomes the admin. Subsequent registrations are disabled.
-
-**Gateway environment variables:**
+**Configuration** is done via environment variables:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -65,19 +48,17 @@ The first user to sign up automatically becomes the admin. Subsequent registrati
 | `GATEWAY_ALLOWED_ORIGINS` | *(none)* | CORS allowed origins (comma-separated) |
 | `GATEWAY_SESSION_TTL_HOURS` | `168` (7 days) | Session token lifetime |
 
-### 2. Register Your Account on the Gateway
-
-The first user to sign up becomes the admin. You can do this from the WebUI's E2EE settings dialog or via any HTTP client:
+Example:
 
 ```bash
-curl -X POST https://your-gateway.example.com/api/auth/signup \
-  -H 'Content-Type: application/json' \
-  -d '{"email": "you@example.com", "password": "your-password"}'
+GATEWAY_PORT=443 ./e2ee-gateway
 ```
 
-### 3. Login the Local Machine
+The first user to sign up automatically becomes the admin. After that, registration is closed.
 
-On the machine running `vibe-kanban`:
+### 2. Connect Your Machine to the Gateway
+
+On the machine running `vibe-kanban`, first authenticate:
 
 ```bash
 vibe-kanban login --gateway https://your-gateway.example.com
@@ -87,9 +68,8 @@ This will:
 1. Prompt for your email and password
 2. Authenticate with the gateway
 3. Generate a 32-byte master secret
-4. Derive a device key and register it on the gateway
-5. Save credentials to `~/.vibe-kanban/credentials.json`
-6. Print the master secret — **copy this for pairing the WebUI**
+4. Save credentials locally
+5. Print the master secret — **save this for later, you'll need it in the browser**
 
 Example output:
 ```
@@ -99,38 +79,35 @@ Password: ****
 
 Login successful!
 
-Your master secret (for pairing WebUI):
+Your master secret (for pairing):
   K7x2m9QaB3nF8pLw... (base64)
-
-Enter this in WebUI Settings > E2EE > Pair Device
 ```
 
-### 4. Start the Server with Gateway Connection
-
-Set the `VK_GATEWAY_URL` environment variable when starting the server:
+Then start the server with the gateway URL:
 
 ```bash
 VK_GATEWAY_URL=https://your-gateway.example.com vibe-kanban
 ```
 
-The server will automatically connect to the gateway in the background. You can verify with the logs:
-
+The server connects to the gateway automatically. You should see in the logs:
 ```
-INFO Starting E2EE bridge to gateway: https://your-gateway.example.com
 INFO Bridge connected and registered as machine ...
 ```
 
-### 5. Pair the WebUI
+### 3. Access from Any Browser
 
-Open the WebUI (either locally or served through the gateway), then:
+Open `https://your-gateway.example.com` in any browser. You will see the gateway login screen.
 
-1. Go to **Settings > E2EE**
-2. Enter the **gateway URL** and log in with your email/password
-3. In the **Pair Device** section, paste the master secret from step 3
-4. Your paired machines will appear in the **Online Machines** section
-5. Click **Connect** on the machine you want to access
+1. **Log in** — use the email and password you registered with
+2. **Enter your master secret** — paste the base64 string from step 2
+3. **Select your machine** — you'll see a list of your online machines
+4. **Done** — the full vibe-kanban interface loads, all data is end-to-end encrypted
 
-Once connected, all API calls from the WebUI are transparently encrypted and forwarded to the remote machine.
+All API calls, WebSocket streams, and file uploads are transparently encrypted in your browser. The gateway only sees encrypted data.
+
+### Connection recovery
+
+If the connection drops (network issues, server restart, etc.), the browser will automatically reconnect with exponential backoff. After 5 failed attempts, you'll be returned to the machine selection screen to reconnect manually.
 
 ## CLI Commands
 
@@ -140,6 +117,15 @@ Once connected, all API calls from the WebUI are transparently encrypted and for
 | `vibe-kanban login --gateway <url>` | Authenticate with a gateway and generate master secret |
 | `vibe-kanban logout` | Delete stored gateway credentials |
 | `vibe-kanban status` | Show gateway connection status |
+
+## Components
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| `e2ee-core` | `crates/e2ee-core/` | Shared cryptography library (Rust) |
+| `e2ee-gateway` | `crates/e2ee-gateway/` | Gateway server — serves Web UI + message routing |
+| Bridge (in server) | `crates/server/src/e2ee_bridge.rs` | Connects local server to gateway |
+| Frontend client | `frontend/src/lib/e2ee/` | Browser-side encryption + gateway connection |
 
 ## Cryptography
 
@@ -244,6 +230,7 @@ Used by browsers to connect to the gateway.
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | `GET` | `/api/health` | None | Health check |
+| `GET` | `/api/gateway/info` | None | Gateway mode detection (`{"mode": "gateway"}`) |
 | `GET` | `/api/auth/registration-status` | None | Check if signup is open (`{"open": true/false}`) |
 | `POST` | `/api/auth/signup` | None | Create first user (admin) |
 | `POST` | `/api/auth/login` | None | Login, returns session token |
@@ -294,42 +281,37 @@ Credentials are stored at `~/.vibe-kanban/credentials.json` with `0600` permissi
 
 Delete with `vibe-kanban logout`.
 
-## Frontend Integration
+## Frontend Integration (Developer Reference)
 
-The frontend E2EE client is in `frontend/src/lib/e2ee/`:
+The frontend detects gateway mode at runtime by calling `/api/gateway/info`. When running on the gateway, it shows a login → pair → machine select flow before loading the main app.
+
+### Gateway mode detection
+
+The module `frontend/src/lib/gateway-mode.ts` provides:
+- `detectGatewayMode()` — calls `/api/gateway/info`, returns `true` if on gateway
+- `getGatewayConnection()` — returns the active `E2EEConnection` (used by `makeRequest` and WebSocket hooks)
+
+### How requests are routed in gateway mode
+
+- **REST API**: `makeRequest()` in `api.ts` checks `getGatewayConnection()` and routes through `E2EEConnection.remoteFetch()` instead of direct `fetch()`
+- **File uploads**: `uploadFormData()` does the same for `FormData` bodies (image uploads)
+- **WebSocket streams**: `useJsonPatchWsStream`, `useLogStream`, and `streamJsonPatchEntries` use `conn.openWsStream()` to create a `RemoteWs` (WebSocket-compatible interface over E2EE) instead of `new WebSocket()`
+
+### E2EE client files
 
 | File | Purpose |
 |------|---------|
-| `crypto.ts` | XChaCha20-Poly1305, X25519 DEK wrapping |
-| `keys.ts` | BLAKE2b KDF — derive content keypair from master secret |
-| `envelope.ts` | JSON encryption envelope format |
-| `manager.ts` | Singleton managing paired secrets + DEKs |
-| `connection.ts` | WebSocket connection to gateway + `remoteFetch()` |
-
-**React hooks:**
-
-| Hook | File | Purpose |
-|------|------|---------|
-| `useE2EE()` | `hooks/use-e2ee.ts` | Secrets management, machine list, gateway connection |
-| `useGatewayAuth()` | `hooks/use-gateway-auth.ts` | Gateway signup/login/logout |
+| `lib/e2ee/crypto.ts` | XChaCha20-Poly1305, X25519 DEK wrapping |
+| `lib/e2ee/keys.ts` | BLAKE2b KDF — derive content keypair from master secret |
+| `lib/e2ee/envelope.ts` | JSON encryption envelope format |
+| `lib/e2ee/manager.ts` | Singleton managing paired secrets + DEKs |
+| `lib/e2ee/connection.ts` | WebSocket connection to gateway + `remoteFetch()` + `openWsStream()` |
+| `lib/e2ee/remoteWs.ts` | WebSocket-compatible interface for remote streams |
+| `lib/gateway-mode.ts` | Runtime gateway detection + connection singleton |
+| `contexts/GatewayContext.tsx` | Gateway lifecycle state machine (React) |
+| `components/gateway/*.tsx` | Login, pairing, and machine selection UI |
 
 **Dependencies:** `tweetnacl`, `@noble/hashes`, `@noble/ciphers` (pure JS, no WASM).
-
-### Using `remoteFetch()`
-
-When connected to a remote machine, `E2EEConnection.remoteFetch()` replaces direct `fetch()` calls. It transparently encrypts the request, sends it through the gateway to the daemon, and returns a standard `Response` object:
-
-```typescript
-const { connection, connected } = useE2EE();
-
-if (connected) {
-  // This goes through the E2EE gateway to the remote machine
-  const response = await connection.remoteFetch('/api/tasks', {
-    method: 'GET',
-  });
-  const tasks = await response.json();
-}
-```
 
 ## Troubleshooting
 
@@ -339,11 +321,14 @@ Run `vibe-kanban login --gateway <url>` to authenticate and generate a master se
 **"VK_GATEWAY_URL is set but credentials are for a different gateway"**
 Run `vibe-kanban login --gateway <url>` again with the correct gateway URL.
 
-**WebUI shows no online machines**
-Verify the server is running with `VK_GATEWAY_URL` set and check server logs for bridge connection messages.
+**No machines appear after logging in to the gateway**
+Check that the `vibe-kanban` server is running with `VK_GATEWAY_URL` set. Look at the server logs for connection messages.
 
-**Pairing fails / "Failed to add secret"**
+**Pairing fails / "Invalid master secret"**
 Ensure you're pasting the complete base64 master secret (exactly 44 characters for a 32-byte secret).
 
-**Request timeout (30s)**
-Check that the remote `vibe-kanban` server is running and the bridge is connected. Look at server logs for errors.
+**Request timeout**
+Check that the remote `vibe-kanban` server is running and connected to the gateway. The default timeout is 30s for normal requests and 120s for file uploads.
+
+**Connection keeps dropping**
+The browser automatically reconnects up to 5 times with exponential backoff. If it keeps failing, check the gateway server logs and network connectivity between the gateway and the machine.

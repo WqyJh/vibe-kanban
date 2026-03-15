@@ -2,6 +2,8 @@ import { useEffect, useState, useRef } from 'react';
 import { produce } from 'immer';
 import type { Operation } from 'rfc6902';
 import { applyUpsertPatch } from '@/utils/jsonPatch';
+import { getGatewayConnection } from '@/lib/gateway-mode';
+import type { RemoteWs } from '@/lib/e2ee/remoteWs';
 
 type WsJsonPatchMsg = { JsonPatch: Operation[] };
 type WsReadyMsg = { Ready: true };
@@ -39,7 +41,7 @@ export const useJsonPatchWsStream = <T extends object>(
   const [isConnected, setIsConnected] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
+  const wsRef = useRef<WebSocket | RemoteWs | null>(null);
   const dataRef = useRef<T | undefined>(undefined);
   const retryTimerRef = useRef<number | null>(null);
   const retryAttemptsRef = useRef<number>(0);
@@ -96,9 +98,17 @@ export const useJsonPatchWsStream = <T extends object>(
       // Reset finished flag for new connection
       finishedRef.current = false;
 
-      // Convert HTTP endpoint to WebSocket endpoint
-      const wsEndpoint = endpoint.replace(/^http/, 'ws');
-      const ws = new WebSocket(wsEndpoint);
+      // In gateway mode, use E2EE connection for remote WebSocket
+      const conn = getGatewayConnection();
+      let ws: WebSocket | RemoteWs;
+      if (conn) {
+        const url = new URL(endpoint, window.location.origin);
+        ws = conn.openWsStream(url.pathname, url.search?.substring(1) || undefined);
+      } else {
+        // Convert HTTP endpoint to WebSocket endpoint
+        const wsEndpoint = endpoint.replace(/^http/, 'ws');
+        ws = new WebSocket(wsEndpoint);
+      }
 
       ws.onopen = () => {
         setError(null);

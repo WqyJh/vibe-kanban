@@ -1,6 +1,8 @@
 // streamJsonPatchEntries.ts - WebSocket JSON patch streaming utility
 import type { Operation } from 'rfc6902';
 import { applyUpsertPatch } from '@/utils/jsonPatch';
+import { getGatewayConnection } from '@/lib/gateway-mode';
+import type { RemoteWs } from '@/lib/e2ee/remoteWs';
 
 type PatchContainer<E = unknown> = { entries: E[] };
 
@@ -46,9 +48,17 @@ export function streamJsonPatchEntries<E = unknown>(
   const subscribers = new Set<(entries: E[]) => void>();
   if (opts.onEntries) subscribers.add(opts.onEntries);
 
-  // Convert HTTP endpoint to WebSocket endpoint
-  const wsUrl = url.replace(/^http/, 'ws');
-  const ws = new WebSocket(wsUrl);
+  // In gateway mode, use E2EE connection for remote WebSocket
+  const conn = getGatewayConnection();
+  let ws: WebSocket | RemoteWs;
+  if (conn) {
+    const parsed = new URL(url, window.location.origin);
+    ws = conn.openWsStream(parsed.pathname, parsed.search?.substring(1) || undefined);
+  } else {
+    // Convert HTTP endpoint to WebSocket endpoint
+    const wsUrl = url.replace(/^http/, 'ws');
+    ws = new WebSocket(wsUrl);
+  }
 
   const notify = () => {
     for (const cb of subscribers) {
@@ -87,21 +97,21 @@ export function streamJsonPatchEntries<E = unknown>(
     }
   };
 
-  ws.addEventListener('open', () => {
+  ws.onopen = () => {
     connected = true;
     opts.onConnect?.();
-  });
+  };
 
-  ws.addEventListener('message', handleMessage);
+  ws.onmessage = handleMessage;
 
-  ws.addEventListener('error', (err) => {
+  ws.onerror = (err) => {
     connected = false;
     opts.onError?.(err);
-  });
+  };
 
-  ws.addEventListener('close', () => {
+  ws.onclose = () => {
     connected = false;
-  });
+  };
 
   return {
     getEntries(): E[] {

@@ -82,6 +82,8 @@ async fn main() {
     let app = Router::new()
         // Health
         .route("/api/health", get(routes::health::health))
+        // Gateway info (mode detection for frontend)
+        .route("/api/gateway/info", get(routes::gateway_info))
         // Auth
         .route("/api/auth/signup", post(routes::auth_routes::signup))
         .route("/api/auth/login", post(routes::auth_routes::login))
@@ -98,6 +100,9 @@ async fn main() {
         // WebSocket endpoints
         .route("/ws/daemon", get(socket::cli_handler::daemon_ws_handler))
         .route("/ws/webui", get(socket::webui_handler::webui_ws_handler))
+        // Frontend static files (catch-all, must be last)
+        .route("/", get(routes::frontend::serve_frontend_root))
+        .route("/{*path}", get(routes::frontend::serve_frontend))
         .layer(cors)
         .with_state(state);
 

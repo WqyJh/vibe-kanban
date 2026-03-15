@@ -20,3 +20,4 @@ export {
   type ConnectionOptions,
   type MachineStatus,
 } from './connection';
+export { RemoteWs } from './remoteWs';
