@@ -13,7 +13,7 @@
     "url": "https://github.com/WqyJh/vibe-kanban"
   },
   "license": "",
-  "description": "NPX wrapper around vibe-kanban and vibe-kanban-mcp",
+  "description": "NPX wrapper around vibe-kanban, vibe-kanban-mcp, vibe-kanban-review, and vibe-kanban-gateway",
   "dependencies": {
     "adm-zip": "^0.5.16"
   },
