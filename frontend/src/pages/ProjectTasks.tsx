@@ -54,6 +54,8 @@ import TaskKanbanBoard, {
 } from '@/components/tasks/TaskKanbanBoard';
 import type { DragEndEvent } from '@/components/ui/shadcn-io/kanban';
 import { useProjectTasks } from '@/hooks/useProjectTasks';
+import { useApprovals } from '@/hooks/useApprovals';
+import { useTaskNotifications } from '@/hooks/useTaskNotifications';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useHotkeysContext } from 'react-hotkeys-hook';
 import { TasksLayout, type LayoutMode } from '@/components/layout/TasksLayout';
@@ -178,6 +180,8 @@ export function ProjectTasks() {
     error: streamError,
   } = useProjectTasks(projectId || '');
 
+  const { pendingApprovals } = useApprovals();
+
   const selectedTask = useMemo(
     () => (taskId ? (tasksById[taskId] ?? null) : null),
     [taskId, tasksById]
@@ -186,6 +190,8 @@ export function ProjectTasks() {
   const isPanelOpen = Boolean(taskId && selectedTask);
 
   const { config, updateAndSaveConfig, loading } = useUserSystem();
+
+  useTaskNotifications(tasksById, pendingApprovals, config);
 
   const isLoaded = !loading;
   const showcaseId = showcases.taskPanel.id;
