@@ -222,11 +222,7 @@ async fn cmd_login(gateway_url: &str) -> anyhow::Result<()> {
     std::io::stdin().read_line(&mut email)?;
     let email = email.trim().to_string();
 
-    print!("Password: ");
-    std::io::stdout().flush()?;
-    let mut password = String::new();
-    std::io::stdin().read_line(&mut password)?;
-    let password = password.trim().to_string();
+    let password = rpassword::prompt_password("Password: ")?;
 
     // Install rustls crypto provider for reqwest
     let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
