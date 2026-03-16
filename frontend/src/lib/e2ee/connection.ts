@@ -188,11 +188,12 @@ export class E2EEConnection {
       }
     }
 
+    const parsed = new URL(url, 'http://localhost');
     const request = {
       type: 'http_request' as const,
       id,
       method,
-      path: new URL(url, 'http://localhost').pathname,
+      path: parsed.pathname + parsed.search,
       headers,
       body,
     };

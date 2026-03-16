@@ -13,23 +13,26 @@ export function GatewayPairPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold">Pair Device</h1>
-        <p className="text-sm text-muted-foreground mt-1">
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="text-center space-y-2">
+        <h1 className="text-xl font-bold text-foreground">Pair Device</h1>
+        <p className="text-sm opacity-70">
           Enter the master secret from your vibe-kanban server.
         </p>
-        <p className="text-xs text-muted-foreground mt-2">
-          Run <code className="bg-muted px-1 rounded">vibe-kanban login --gateway {window.location.origin}</code> on your server to get the master secret.
-        </p>
+        <div className="gateway-code-block">
+          Run{' '}
+          <code>
+            vibe-kanban login --gateway {window.location.origin}
+          </code>{' '}
+          on your server to get the master secret.
+        </div>
       </div>
 
+      {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label
-            htmlFor="secret"
-            className="block text-sm font-medium mb-1"
-          >
+        <div className="space-y-1">
+          <label htmlFor="secret" className="block text-sm font-medium">
             Master Secret (base64)
           </label>
           <input
@@ -38,25 +41,25 @@ export function GatewayPairPage() {
             required
             value={secretInput}
             onChange={(e) => setSecretInput(e.target.value)}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono"
+            className="gateway-input font-mono"
             placeholder="Paste your 32-byte base64 master secret..."
           />
         </div>
 
         {pairError && (
-          <p className="text-sm text-destructive">{pairError}</p>
+          <div className="gateway-error">
+            <p className="text-sm">{pairError}</p>
+          </div>
         )}
 
-        <button
-          type="submit"
-          className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-        >
+        <button type="submit" className="gateway-button-primary">
           Pair
         </button>
       </form>
 
-      <p className="text-center text-sm text-muted-foreground">
-        <button onClick={logout} className="text-primary underline">
+      {/* Sign out */}
+      <p className="text-center text-sm opacity-70">
+        <button type="button" onClick={logout} className="gateway-link">
           Sign out
         </button>
       </p>

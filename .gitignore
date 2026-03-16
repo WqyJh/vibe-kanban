@@ -39,6 +39,11 @@ bindings/
 ehthumbs.db
 Thumbs.db
 
+# Database files
+*.db
+*.db-wal
+*.db-shm
+
 # Runtime data
 pids
 *.pid

@@ -2,13 +2,8 @@ import { useState } from 'react';
 import { useGateway } from '@/contexts/GatewayContext';
 
 export function GatewayLoginPage() {
-  const {
-    signup,
-    login,
-    authError,
-    authLoading,
-    registrationOpen,
-  } = useGateway();
+  const { signup, login, authError, authLoading, registrationOpen } =
+    useGateway();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -25,21 +20,22 @@ export function GatewayLoginPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold">Vibe Kanban Gateway</h1>
-        <p className="text-sm text-muted-foreground mt-1">
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="text-center space-y-2">
+        <h1 className="text-xl font-bold text-foreground">
+          Vibe Kanban Gateway
+        </h1>
+        <p className="text-sm text-foreground opacity-70">
           {isSignupMode ? 'Create your account' : 'Sign in to continue'}
         </p>
       </div>
 
+      {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-4">
         {isSignupMode && (
-          <div>
-            <label
-              htmlFor="name"
-              className="block text-sm font-medium mb-1"
-            >
+          <div className="space-y-1">
+            <label htmlFor="name" className="block text-sm font-medium">
               Name
             </label>
             <input
@@ -47,17 +43,14 @@ export function GatewayLoginPage() {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              className="gateway-input"
               placeholder="Your name"
             />
           </div>
         )}
 
-        <div>
-          <label
-            htmlFor="email"
-            className="block text-sm font-medium mb-1"
-          >
+        <div className="space-y-1">
+          <label htmlFor="email" className="block text-sm font-medium">
             Email
           </label>
           <input
@@ -66,16 +59,13 @@ export function GatewayLoginPage() {
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            className="gateway-input"
             placeholder="you@example.com"
           />
         </div>
 
-        <div>
-          <label
-            htmlFor="password"
-            className="block text-sm font-medium mb-1"
-          >
+        <div className="space-y-1">
+          <label htmlFor="password" className="block text-sm font-medium">
             Password
           </label>
           <input
@@ -84,19 +74,21 @@ export function GatewayLoginPage() {
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            className="gateway-input"
             placeholder="Password"
           />
         </div>
 
         {authError && (
-          <p className="text-sm text-destructive">{authError}</p>
+          <div className="gateway-error">
+            <p className="text-sm">{authError}</p>
+          </div>
         )}
 
         <button
           type="submit"
           disabled={authLoading}
-          className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          className="gateway-button-primary"
         >
           {authLoading
             ? 'Loading...'
@@ -106,14 +98,16 @@ export function GatewayLoginPage() {
         </button>
       </form>
 
+      {/* Toggle */}
       {registrationOpen !== false && (
-        <p className="text-center text-sm text-muted-foreground">
+        <p className="text-center text-sm opacity-70">
           {isSignupMode ? (
             <>
               Already have an account?{' '}
               <button
+                type="button"
                 onClick={() => setIsSignupMode(false)}
-                className="text-primary underline"
+                className="gateway-link"
               >
                 Sign in
               </button>
@@ -122,8 +116,9 @@ export function GatewayLoginPage() {
             <>
               Don&apos;t have an account?{' '}
               <button
+                type="button"
                 onClick={() => setIsSignupMode(true)}
-                className="text-primary underline"
+                className="gateway-link"
               >
                 Sign up
               </button>

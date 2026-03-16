@@ -4,53 +4,52 @@ export function GatewayMachineSelectPage() {
   const { machines, selectMachine, connectionError, logout } = useGateway();
 
   return (
-    <div className="space-y-6">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold">Select Machine</h1>
-        <p className="text-sm text-muted-foreground mt-1">
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="text-center space-y-2">
+        <h1 className="text-xl font-bold text-foreground">Select Machine</h1>
+        <p className="text-sm opacity-70">
           Choose a connected machine to access.
         </p>
       </div>
 
       {connectionError && (
-        <p className="text-sm text-destructive text-center">
-          {connectionError}
-        </p>
+        <div className="gateway-error text-center">
+          <p className="text-sm">{connectionError}</p>
+        </div>
       )}
 
       {machines.length === 0 ? (
-        <div className="text-center py-8">
-          <p className="text-muted-foreground">No machines online.</p>
-          <p className="text-xs text-muted-foreground mt-2">
+        <div className="text-center py-6 space-y-2">
+          <p className="opacity-70">No machines online.</p>
+          <div className="gateway-code-block">
             Make sure your vibe-kanban server is running with{' '}
-            <code className="bg-muted px-1 rounded">
-              VK_GATEWAY_URL={window.location.origin}
-            </code>
-          </p>
+            <code>VK_GATEWAY_URL={window.location.origin}</code>
+          </div>
         </div>
       ) : (
         <div className="space-y-2">
           {machines.map((m) => (
             <button
               key={m.machine_id}
+              type="button"
               onClick={() => selectMachine(m.machine_id)}
-              className="w-full rounded-md border border-input bg-background px-4 py-3 text-left hover:bg-accent transition-colors"
+              className="gateway-machine-card"
             >
               <div className="font-medium text-sm">
                 {m.hostname || m.machine_id}
               </div>
               {m.platform && (
-                <div className="text-xs text-muted-foreground">
-                  {m.platform}
-                </div>
+                <div className="text-xs opacity-70">{m.platform}</div>
               )}
             </button>
           ))}
         </div>
       )}
 
-      <p className="text-center text-sm text-muted-foreground">
-        <button onClick={logout} className="text-primary underline">
+      {/* Sign out */}
+      <p className="text-center text-sm opacity-70">
+        <button type="button" onClick={logout} className="gateway-link">
           Sign out
         </button>
       </p>
