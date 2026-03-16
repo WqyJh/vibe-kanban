@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   AlertTriangle,
+  Check,
   Cloud,
+  Copy,
   ExternalLink,
   Plus,
   Sparkles,
@@ -75,6 +77,12 @@ import {
 } from '@/components/ui/breadcrumb';
 import { AttemptHeaderActions } from '@/components/panels/AttemptHeaderActions';
 import { TaskPanelHeaderActions } from '@/components/panels/TaskPanelHeaderActions';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useSelectedOrgId } from '@/stores/useOrganizationStore';
 
 import type { TaskWithAttemptStatus, TaskStatus } from 'shared/types';
@@ -318,7 +326,19 @@ export function ProjectTasks() {
   const effectiveAttemptId = attemptId === 'latest' ? undefined : attemptId;
   const isTaskView = !!taskId && !effectiveAttemptId;
   const { data: attempt } = useTaskAttemptWithSession(effectiveAttemptId);
+  const [copied, setCopied] = useState(false);
 
+  const handleCopyWorktree = useCallback(async () => {
+    const path = attempt?.container_ref;
+    if (!path) return;
+    try {
+      await navigator.clipboard.writeText(path);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.warn('Copy to clipboard failed:', err);
+    }
+  }, [attempt?.container_ref]);
   const { data: branchStatus, error: branchStatusError } = useBranchStatus(
     attempt?.id
   );
@@ -848,11 +868,37 @@ export function ProjectTasks() {
               <>
                 <BreadcrumbSeparator />
                 <BreadcrumbItem>
-                  <BreadcrumbPage>
-                    {attempt?.mode === 'direct'
-                      ? branchStatus?.[0]?.target_branch_name || 'Direct'
-                      : attempt?.branch || 'Task Attempt'}
-                  </BreadcrumbPage>
+                  <div className="flex items-center gap-1">
+                    <BreadcrumbPage>
+                      {attempt?.mode === 'direct'
+                        ? branchStatus?.[0]?.target_branch_name || 'Direct'
+                        : attempt?.branch || 'Task Attempt'}
+                    </BreadcrumbPage>
+                    {attempt?.container_ref && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="xs"
+                              onClick={handleCopyWorktree}
+                              className="h-5 w-5 p-0"
+                              aria-label="Copy worktree path"
+                            >
+                              {copied ? (
+                                <Check className="h-3.5 w-3.5 text-success" />
+                              ) : (
+                                <Copy className="h-3.5 w-3.5" />
+                              )}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom">
+                            {copied ? 'Copied!' : 'Copy worktree path'}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+                  </div>
                 </BreadcrumbItem>
               </>
             )}
