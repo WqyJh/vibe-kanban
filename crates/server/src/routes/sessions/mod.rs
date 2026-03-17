@@ -273,6 +273,7 @@ pub fn router(deployment: &DeploymentImpl) -> Router<DeploymentImpl> {
         .route("/follow-up", post(follow_up))
         .route("/reset", post(reset_process))
         .route("/review", post(review::start_review))
+        .route("/queue", queue::routes())
         .layer(from_fn_with_state(
             deployment.clone(),
             load_session_middleware,
@@ -280,8 +281,7 @@ pub fn router(deployment: &DeploymentImpl) -> Router<DeploymentImpl> {
 
     let sessions_router = Router::new()
         .route("/", get(get_sessions).post(create_session))
-        .nest("/{session_id}", session_id_router)
-        .nest("/{session_id}/queue", queue::router(deployment));
+        .nest("/{session_id}", session_id_router);
 
     Router::new().nest("/sessions", sessions_router)
 }

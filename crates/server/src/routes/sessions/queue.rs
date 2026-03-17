@@ -1,6 +1,6 @@
 use axum::{
-    Extension, Json, Router, extract::State, middleware::from_fn_with_state,
-    response::Json as ResponseJson, routing::get,
+    Extension, Json, extract::State,
+    response::Json as ResponseJson, routing::{MethodRouter, get},
 };
 use db::models::{scratch::DraftFollowUpData, session::Session};
 use deployment::Deployment;
@@ -10,7 +10,7 @@ use services::services::queued_message::QueueStatus;
 use ts_rs::TS;
 use utils::response::ApiResponse;
 
-use crate::{DeploymentImpl, error::ApiError, middleware::load_session_middleware};
+use crate::{DeploymentImpl, error::ApiError};
 
 /// Request body for queueing a follow-up message
 #[derive(Debug, Deserialize, TS)]
@@ -81,16 +81,11 @@ pub async fn get_queue_status(
     Ok(ResponseJson(ApiResponse::success(status)))
 }
 
-pub fn router(deployment: &DeploymentImpl) -> Router<DeploymentImpl> {
-    Router::new()
-        .route(
-            "/",
-            get(get_queue_status)
-                .post(queue_message)
-                .delete(cancel_queued_message),
-        )
-        .layer(from_fn_with_state(
-            deployment.clone(),
-            load_session_middleware,
-        ))
+/// Returns a MethodRouter for queue routes.
+/// Note: session loading middleware must be applied by the caller at the
+/// `/{session_id}` level where the path parameter is available.
+pub fn routes() -> MethodRouter<DeploymentImpl> {
+    get(get_queue_status)
+        .post(queue_message)
+        .delete(cancel_queued_message)
 }
