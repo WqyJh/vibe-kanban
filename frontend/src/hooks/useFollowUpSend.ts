@@ -14,6 +14,7 @@ type Args = {
   allowExecutorChange?: boolean;
   clearComments: () => void;
   clearClickedElements?: () => void;
+  onBeforeSend?: () => void;
   onAfterSendCleanup: () => void;
 };
 
@@ -28,6 +29,7 @@ export function useFollowUpSend({
   allowExecutorChange,
   clearComments,
   clearClickedElements,
+  onBeforeSend,
   onAfterSendCleanup,
 }: Args) {
   const [isSendingFollowUp, setIsSendingFollowUp] = useState(false);
@@ -46,6 +48,7 @@ export function useFollowUpSend({
     try {
       setIsSendingFollowUp(true);
       setFollowUpError(null);
+      onBeforeSend?.();
       const body: CreateFollowUpAttempt = {
         prompt: prompt,
         executor_profile_id: { executor, variant },
@@ -80,6 +83,7 @@ export function useFollowUpSend({
     allowExecutorChange,
     clearComments,
     clearClickedElements,
+    onBeforeSend,
     onAfterSendCleanup,
   ]);
 

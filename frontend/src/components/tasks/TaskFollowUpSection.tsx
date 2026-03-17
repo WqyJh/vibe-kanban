@@ -140,6 +140,7 @@ export function TaskFollowUpSection({
   const {
     scratch,
     updateScratch,
+    deleteScratch,
     isLoading: isScratchLoading,
   } = useScratch(ScratchType.DRAFT_FOLLOW_UP, sessionId ?? '');
 
@@ -409,10 +410,12 @@ export function TaskFollowUpSection({
       allowExecutorChange: executorChanged,
       clearComments,
       clearClickedElements,
+      onBeforeSend: () => {
+        cancelDebouncedSave(); // Cancel pending save BEFORE HTTP request to prevent race condition
+      },
       onAfterSendCleanup: () => {
-        cancelDebouncedSave(); // Cancel any pending debounced save to avoid race condition
         setLocalMessage(''); // Clear local state immediately
-        // Scratch deletion is handled by the backend when the queued message is consumed
+        deleteScratch(); // Clear persisted draft so it doesn't reappear on reopen
       },
     });
 
