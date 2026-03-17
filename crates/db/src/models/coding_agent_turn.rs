@@ -30,6 +30,14 @@ pub struct CodingAgentResumeInfo {
     pub message_id: Option<String>,
 }
 
+/// Internal struct used by context summary functions.
+#[derive(FromRow)]
+struct TurnForContext {
+    prompt: Option<String>,
+    summary: Option<String>,
+    executor: Option<String>,
+}
+
 impl CodingAgentTurn {
     /// Find session info from the latest coding agent turn for a session.
     /// Only returns turns that have an agent_session_id set.
@@ -285,19 +293,65 @@ impl CodingAgentTurn {
         pool: &SqlitePool,
         session_id: Uuid,
     ) -> Result<Option<String>, sqlx::Error> {
-        #[derive(FromRow)]
-        struct TurnContext {
-            prompt: Option<String>,
-            summary: Option<String>,
-        }
+        let turns = Self::fetch_turns_for_session(pool, session_id).await?;
+        Ok(Self::format_turns(turns))
+    }
 
-        let turns: Vec<TurnContext> = sqlx::query_as!(
-            TurnContext,
+    /// Build a context summary from all coding agent turns across ALL workspaces/sessions for a task.
+    /// Used when retrying to a new task to preserve complete conversation history.
+    pub async fn build_task_context_summary(
+        pool: &SqlitePool,
+        task_id: Uuid,
+    ) -> Result<Option<String>, sqlx::Error> {
+        let turns = Self::fetch_turns_for_task(pool, task_id).await?;
+        Ok(Self::format_turns(turns))
+    }
+
+    // Shared turn formatting logic for context summaries.
+    fn format_turns(turns: Vec<TurnForContext>) -> Option<String> {
+        if turns.is_empty() {
+            return None;
+        }
+        let parts: Vec<String> = turns
+            .iter()
+            .enumerate()
+            .map(|(i, turn)| {
+                let user = turn.prompt.as_deref().unwrap_or("(no message)");
+                let assistant = turn.summary.as_deref().unwrap_or("(no response)");
+                let executor_label = turn
+                    .executor
+                    .as_deref()
+                    .map(|e| format!(" ({})", e))
+                    .unwrap_or_default();
+                format!(
+                    "Turn {}{}:\nUser: {}\nAssistant: {}",
+                    i + 1,
+                    executor_label,
+                    user,
+                    assistant
+                )
+            })
+            .collect();
+        if parts.is_empty() {
+            None
+        } else {
+            Some(parts.join("\n\n"))
+        }
+    }
+
+    async fn fetch_turns_for_session(
+        pool: &SqlitePool,
+        session_id: Uuid,
+    ) -> Result<Vec<TurnForContext>, sqlx::Error> {
+        sqlx::query_as!(
+            TurnForContext,
             r#"SELECT
                 cat.prompt,
-                cat.summary
+                cat.summary,
+                s.executor
                FROM execution_processes ep
                JOIN coding_agent_turns cat ON ep.id = cat.execution_process_id
+               JOIN sessions s ON ep.session_id = s.id
                WHERE ep.session_id = $1
                  AND ep.run_reason = 'codingagent'
                  AND ep.dropped = FALSE
@@ -306,31 +360,31 @@ impl CodingAgentTurn {
             session_id
         )
         .fetch_all(pool)
-        .await?;
+        .await
+    }
 
-        if turns.is_empty() {
-            return Ok(None);
-        }
-
-        let context_parts: Vec<String> = turns
-            .iter()
-            .enumerate()
-            .map(|(i, turn)| {
-                let user_msg = turn.prompt.as_deref().unwrap_or("(no message)");
-                let assistant_msg = turn.summary.as_deref().unwrap_or("(no response)");
-                format!(
-                    "Turn {}:\nUser: {}\nAssistant: {}",
-                    i + 1,
-                    user_msg,
-                    assistant_msg
-                )
-            })
-            .collect();
-
-        if context_parts.is_empty() {
-            Ok(None)
-        } else {
-            Ok(Some(context_parts.join("\n\n")))
-        }
+    async fn fetch_turns_for_task(
+        pool: &SqlitePool,
+        task_id: Uuid,
+    ) -> Result<Vec<TurnForContext>, sqlx::Error> {
+        sqlx::query_as!(
+            TurnForContext,
+            r#"SELECT
+                cat.prompt,
+                cat.summary,
+                s.executor
+               FROM execution_processes ep
+               JOIN coding_agent_turns cat ON ep.id = cat.execution_process_id
+               JOIN sessions s ON ep.session_id = s.id
+               JOIN workspaces w ON s.workspace_id = w.id
+               WHERE w.task_id = $1
+                 AND ep.run_reason = 'codingagent'
+                 AND ep.dropped = FALSE
+                 AND (cat.prompt IS NOT NULL OR cat.summary IS NOT NULL)
+               ORDER BY ep.created_at ASC"#,
+            task_id
+        )
+        .fetch_all(pool)
+        .await
     }
 }

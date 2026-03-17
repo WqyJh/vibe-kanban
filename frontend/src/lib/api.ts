@@ -48,6 +48,7 @@ import {
   CheckEditorAvailabilityResponse,
   AvailabilityInfo,
   BaseCodingAgent,
+  ConversationContextResponse,
   ExecutorProfileId,
   RunAgentSetupRequest,
   RunAgentSetupResponse,
@@ -389,6 +390,15 @@ export const tasksApi = {
       method: 'DELETE',
     });
     return handleApiResponse<void>(response);
+  },
+
+  getConversationContext: async (
+    taskId: string
+  ): Promise<ConversationContextResponse> => {
+    const response = await makeRequest(
+      `/api/tasks/${taskId}/conversation-context`
+    );
+    return handleApiResponse<ConversationContextResponse>(response);
   },
 };
 

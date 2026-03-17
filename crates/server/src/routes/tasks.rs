@@ -13,6 +13,7 @@ use axum::{
     routing::{delete, get, post, put},
 };
 use db::models::{
+    coding_agent_turn::CodingAgentTurn,
     image::TaskImage,
     repo::{Repo, RepoError},
     task::{CreateTask, Task, TaskWithAttemptStatus, UpdateTask},
@@ -144,6 +145,8 @@ pub struct CreateAndStartTaskRequest {
     pub repos: Vec<WorkspaceRepoInput>,
     #[ts(optional)]
     pub workspace_mode: Option<WorkspaceMode>,
+    #[ts(optional)]
+    pub initial_context: Option<String>,
 }
 
 pub async fn create_task_and_start(
@@ -245,7 +248,7 @@ pub async fn create_task_and_start(
 
     let is_attempt_running = deployment
         .container()
-        .start_workspace(&workspace, payload.executor_profile_id.clone())
+        .start_workspace(&workspace, payload.executor_profile_id.clone(), payload.initial_context.clone())
         .await
         .inspect_err(|err| tracing::error!("Failed to start task attempt: {}", err))
         .is_ok();
@@ -433,6 +436,22 @@ pub async fn delete_task(
     Ok((StatusCode::ACCEPTED, ResponseJson(ApiResponse::success(()))))
 }
 
+#[derive(Serialize, TS)]
+pub struct ConversationContextResponse {
+    pub context: Option<String>,
+}
+
+pub async fn get_conversation_context(
+    Extension(task): Extension<Task>,
+    State(deployment): State<DeploymentImpl>,
+) -> Result<ResponseJson<ApiResponse<ConversationContextResponse>>, ApiError> {
+    let context =
+        CodingAgentTurn::build_task_context_summary(&deployment.db().pool, task.id).await?;
+    Ok(ResponseJson(ApiResponse::success(
+        ConversationContextResponse { context },
+    )))
+}
+
 pub fn router(deployment: &DeploymentImpl) -> Router<DeploymentImpl> {
     let task_actions_router = Router::new()
         .route("/", put(update_task))
@@ -440,6 +459,7 @@ pub fn router(deployment: &DeploymentImpl) -> Router<DeploymentImpl> {
 
     let task_id_router = Router::new()
         .route("/", get(get_task))
+        .route("/conversation-context", get(get_conversation_context))
         .merge(task_actions_router)
         .layer(from_fn_with_state(deployment.clone(), load_task_middleware));
 

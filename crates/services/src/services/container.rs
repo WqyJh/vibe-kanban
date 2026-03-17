@@ -1174,6 +1174,7 @@ pub trait ContainerService {
         &self,
         workspace: &Workspace,
         executor_profile_id: ExecutorProfileId,
+        initial_context: Option<String>,
     ) -> Result<ExecutionProcess, ContainerError> {
         // Create container
         self.create(workspace).await?;
@@ -1201,7 +1202,13 @@ pub trait ContainerService {
         )
         .await?;
 
-        let prompt = task.to_prompt();
+        let mut prompt = task.to_prompt();
+        if let Some(ctx) = initial_context {
+            prompt = format!(
+                "Previous conversation context:\n{}\n\n---\n\nCurrent request:\n{}",
+                ctx, prompt
+            );
+        }
 
         let repos_with_setup: Vec<_> = repos.iter().filter(|r| r.setup_script.is_some()).collect();
 

@@ -26,7 +26,7 @@ import {
 //
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { ScratchType, type TaskWithAttemptStatus } from 'shared/types';
-import { useBranchStatus } from '@/hooks';
+import { useBranchStatus, useNavigateWithSearch } from '@/hooks';
 import { useAttemptRepo } from '@/hooks/useAttemptRepo';
 import { useAttemptExecution } from '@/hooks/useAttemptExecution';
 import { useUserSystem } from '@/components/ConfigProvider';
@@ -61,12 +61,13 @@ import { useScratch } from '@/hooks/useScratch';
 import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queueApi } from '@/lib/api';
-import { imagesApi, attemptsApi } from '@/lib/api';
+import { imagesApi, attemptsApi, tasksApi } from '@/lib/api';
 import { PrCommentsDialog } from '@/components/dialogs/tasks/PrCommentsDialog';
 import type { NormalizedComment } from '@/components/ui/wysiwyg/nodes/pr-comment-node';
 import type { Session } from 'shared/types';
 import { buildAgentPrompt } from '@/utils/promptMessage';
 import { useApprovalMutation } from '@/hooks/useApprovalMutation';
+import { paths } from '@/lib/paths';
 
 interface TaskFollowUpSectionProps {
   task: TaskWithAttemptStatus;
@@ -79,6 +80,7 @@ export function TaskFollowUpSection({
 }: TaskFollowUpSectionProps) {
   const { t } = useTranslation('tasks');
   const { projectId } = useProject();
+  const navigate = useNavigateWithSearch();
 
   // Derive IDs from session
   const workspaceId = session?.workspace_id;
@@ -526,6 +528,81 @@ export function TaskFollowUpSection({
     saveToScratch,
   ]);
 
+  // State for retry-to-new-task loading
+  const [isRetryingToNewTask, setIsRetryingToNewTask] = useState(false);
+
+  // Handler to create a new task when executor is changed
+  const handleRetryToNewTask = useCallback(async () => {
+    if (!projectId || !selectedExecutor || !workspaceId) return;
+
+    const userMessage = localMessage.trim();
+    if (
+      !userMessage &&
+      !conflictResolutionInstructions &&
+      !reviewMarkdown &&
+      !clickedMarkdown
+    ) {
+      return;
+    }
+
+    try {
+      setIsRetryingToNewTask(true);
+
+      // Fetch conversation context from the current task
+      const contextResponse = await tasksApi.getConversationContext(task.id);
+      const context = contextResponse.context;
+
+      // Build repo inputs from current workspace repos
+      const repoInputs = repos.map((r) => ({
+        repo_id: r.id,
+        target_branch: r.target_branch,
+      }));
+
+      // Create and start a new task with the context
+      const newTask = await tasksApi.createAndStart({
+        task: {
+          title: `Retry: ${task.title}`,
+          project_id: projectId,
+          description: null,
+          status: null,
+          image_ids: null,
+          parent_workspace_id: null,
+        },
+        executor_profile_id: {
+          executor: selectedExecutor,
+          variant: selectedVariant,
+        },
+        repos: repoInputs,
+        initial_context: context ?? undefined,
+      });
+
+      // Clear local state
+      cancelDebouncedSave();
+      setLocalMessage('');
+
+      // Navigate to the new task
+      navigate(`${paths.task(projectId, newTask.id)}/attempts/latest`);
+    } catch (error) {
+      console.error('Failed to retry to new task:', error);
+    } finally {
+      setIsRetryingToNewTask(false);
+    }
+  }, [
+    projectId,
+    selectedExecutor,
+    selectedVariant,
+    workspaceId,
+    localMessage,
+    conflictResolutionInstructions,
+    reviewMarkdown,
+    clickedMarkdown,
+    task.id,
+    task.title,
+    repos,
+    cancelDebouncedSave,
+    navigate,
+  ]);
+
   // Keyboard shortcut handler - send follow-up, queue, or submit question answer
   const handleSubmitShortcut = useCallback(
     (e?: KeyboardEvent) => {
@@ -548,6 +625,9 @@ export function TaskFollowUpSection({
         if (!isQueued) {
           handleQueueMessage();
         }
+      } else if (executorChanged) {
+        // When executor has changed, create a new task with context
+        handleRetryToNewTask();
       } else {
         onSendFollowUp();
       }
@@ -557,6 +637,8 @@ export function TaskFollowUpSection({
       isQueued,
       handleQueueMessage,
       onSendFollowUp,
+      executorChanged,
+      handleRetryToNewTask,
       isInQuestionMode,
       pendingQuestionInfo,
       localMessage,
@@ -1061,23 +1143,29 @@ export function TaskFollowUpSection({
                       ],
                     });
                     setLocalMessage('');
+                  } else if (executorChanged) {
+                    handleRetryToNewTask();
                   } else {
                     onSendFollowUp();
                   }
                 }}
-                disabled={!canSendFollowUp || !isEditable}
+                disabled={
+                  !canSendFollowUp || !isEditable || isRetryingToNewTask
+                }
                 size="sm"
               >
-                {isSendingFollowUp ? (
+                {isSendingFollowUp || isRetryingToNewTask ? (
                   <Loader2 className="animate-spin h-4 w-4 mr-2" />
                 ) : (
                   <>
                     <Send className="h-4 w-4 mr-2" />
                     {isInQuestionMode
                       ? 'Submit Answer'
-                      : conflictResolutionInstructions
-                        ? t('followUp.resolveConflicts')
-                        : t('followUp.send')}
+                      : executorChanged
+                        ? 'Retry to New Task'
+                        : conflictResolutionInstructions
+                          ? t('followUp.resolveConflicts')
+                          : t('followUp.send')}
                   </>
                 )}
               </Button>
