@@ -23,6 +23,7 @@ import {
 import { UserSystemProvider, useUserSystem } from '@/components/ConfigProvider';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { SearchProvider } from '@/contexts/SearchContext';
+import { TerminalProvider } from '@/contexts/TerminalContext';
 
 import { HotkeysProvider } from 'react-hotkeys-hook';
 
@@ -113,7 +114,8 @@ function AppContent() {
     <I18nextProvider i18n={i18n}>
       <ThemeProvider initialTheme={config?.theme || ThemeMode.SYSTEM}>
         <SearchProvider>
-          <SentryRoutes>
+          <TerminalProvider>
+            <SentryRoutes>
             {/* VS Code full-page logs route (outside NormalLayout for minimal UI) */}
             <Route
               path="/local-projects/:projectId/tasks/:taskId/attempts/:attemptId/full"
@@ -165,6 +167,7 @@ function AppContent() {
               />
             </Route>
           </SentryRoutes>
+          </TerminalProvider>
         </SearchProvider>
       </ThemeProvider>
     </I18nextProvider>

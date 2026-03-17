@@ -1,14 +1,18 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, VecDeque},
     io::{Read, Write},
     path::PathBuf,
-    sync::{Arc, Mutex},
+    sync::{
+        atomic::{AtomicBool, AtomicI64, AtomicUsize, Ordering},
+        Arc, Mutex, RwLock,
+    },
     thread,
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use portable_pty::{CommandBuilder, NativePtySystem, PtySize, PtySystem};
 use thiserror::Error;
-use tokio::sync::mpsc;
+use tokio::sync::broadcast;
 use utils::shell::get_interactive_shell;
 use uuid::Uuid;
 
@@ -24,6 +28,56 @@ pub enum PtyError {
     ResizeFailed(String),
     #[error("Session already closed")]
     SessionClosed,
+    #[error("Session attach failed: {0}")]
+    AttachFailed(String),
+}
+
+/// Ring buffer for terminal output history with broadcast for live delivery.
+/// Similar to MsgStore but for raw bytes instead of LogMsg.
+struct TerminalBuffer {
+    sender: broadcast::Sender<Vec<u8>>,
+    history: RwLock<VecDeque<Vec<u8>>>,
+    total_bytes: std::sync::atomic::AtomicUsize,
+}
+
+const MAX_TERMINAL_BUFFER_BYTES: usize = 1024 * 1024; // 1 MB
+
+impl TerminalBuffer {
+    fn new() -> Self {
+        let (sender, _) = broadcast::channel(10000);
+        Self {
+            sender,
+            history: RwLock::new(VecDeque::with_capacity(128)),
+            total_bytes: AtomicUsize::new(0),
+        }
+    }
+
+    fn push(&self, data: Vec<u8>) {
+        let _ = self.sender.send(data.clone()); // live listeners
+
+        let bytes = data.len();
+        let mut history = self.history.write().unwrap();
+
+        // Evict old entries if we'd exceed the limit
+        while self.total_bytes.load(Ordering::Relaxed).saturating_add(bytes) > MAX_TERMINAL_BUFFER_BYTES {
+            if let Some(front) = history.pop_front() {
+                self.total_bytes.fetch_sub(front.len(), Ordering::Relaxed);
+            } else {
+                break;
+            }
+        }
+
+        self.total_bytes.fetch_add(bytes, Ordering::Relaxed);
+        history.push_back(data);
+    }
+
+    fn get_history(&self) -> Vec<Vec<u8>> {
+        self.history.read().unwrap().iter().cloned().collect()
+    }
+
+    fn subscribe(&self) -> broadcast::Receiver<Vec<u8>> {
+        self.sender.subscribe()
+    }
 }
 
 struct PtySession {
@@ -31,6 +85,27 @@ struct PtySession {
     master: Box<dyn portable_pty::MasterPty + Send>,
     _output_handle: thread::JoinHandle<()>,
     closed: bool,
+    buffer: Arc<TerminalBuffer>,
+    attached: AtomicBool,
+    last_activity: AtomicI64,
+}
+
+impl PtySession {
+    fn update_activity(&self) {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64;
+        self.last_activity.store(now, Ordering::Relaxed);
+    }
+
+    fn seconds_since_activity(&self) -> i64 {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64;
+        now.saturating_sub(self.last_activity.load(Ordering::Relaxed))
+    }
 }
 
 #[derive(Clone)]
@@ -40,8 +115,45 @@ pub struct PtyService {
 
 impl PtyService {
     pub fn new() -> Self {
-        Self {
+        let service = Self {
             sessions: Arc::new(Mutex::new(HashMap::new())),
+        };
+
+        // Spawn background cleanup task for detached sessions
+        let sessions = service.sessions.clone();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_secs(300)); // 5 minutes
+            loop {
+                interval.tick().await;
+                Self::cleanup_detached_sessions(&sessions);
+            }
+        });
+
+        service
+    }
+
+    fn cleanup_detached_sessions(sessions: &Arc<Mutex<HashMap<Uuid, PtySession>>>) {
+        let mut to_remove = Vec::new();
+        if let Ok(sessions) = sessions.lock() {
+            for (id, session) in sessions.iter() {
+                // Remove sessions detached for > 30 minutes
+                if !session.attached.load(Ordering::Relaxed)
+                    && session.seconds_since_activity() > 1800
+                {
+                    to_remove.push(*id);
+                }
+            }
+        }
+
+        if !to_remove.is_empty() {
+            if let Ok(mut sessions) = sessions.lock() {
+                for id in to_remove {
+                    if let Some(mut session) = sessions.remove(&id) {
+                        session.closed = true;
+                        tracing::info!("Cleaned up detached terminal session: {}", id);
+                    }
+                }
+            }
         }
     }
 
@@ -50,9 +162,10 @@ impl PtyService {
         working_dir: PathBuf,
         cols: u16,
         rows: u16,
-    ) -> Result<(Uuid, mpsc::UnboundedReceiver<Vec<u8>>), PtyError> {
+    ) -> Result<(Uuid, broadcast::Receiver<Vec<u8>>), PtyError> {
         let session_id = Uuid::new_v4();
-        let (output_tx, output_rx) = mpsc::unbounded_channel();
+        let buffer = Arc::new(TerminalBuffer::new());
+        let buffer_clone = buffer.clone();
         let shell = get_interactive_shell().await;
 
         let result = tokio::task::spawn_blocking(move || {
@@ -79,7 +192,8 @@ impl PtyService {
             } else if shell_name == "cmd.exe" {
                 // cmd.exe: no special args needed
             } else {
-                // Unix shells
+                // Unix shells: -i makes the shell interactive (loads .bashrc/.zshrc, shows prompt)
+                cmd.arg("-i");
                 cmd.env("VIBE_KANBAN_TERMINAL", "1");
 
                 if shell_name == "bash" {
@@ -122,9 +236,7 @@ impl PtyService {
                     match reader.read(&mut buf) {
                         Ok(0) => break,
                         Ok(n) => {
-                            if output_tx.send(buf[..n].to_vec()).is_err() {
-                                break;
-                            }
+                            buffer_clone.push(buf[..n].to_vec());
                         }
                         Err(_) => break,
                     }
@@ -144,6 +256,14 @@ impl PtyService {
             master,
             _output_handle: output_handle,
             closed: false,
+            buffer,
+            attached: AtomicBool::new(true),
+            last_activity: AtomicI64::new(
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs() as i64,
+            ),
         };
 
         self.sessions
@@ -151,7 +271,59 @@ impl PtyService {
             .map_err(|e| PtyError::CreateFailed(e.to_string()))?
             .insert(session_id, session);
 
-        Ok((session_id, output_rx))
+        // Return a new receiver for live output
+        let rx = self
+            .sessions
+            .lock()
+            .map_err(|e| PtyError::CreateFailed(e.to_string()))?
+            .get(&session_id)
+            .ok_or(PtyError::SessionNotFound(session_id))?
+            .buffer
+            .subscribe();
+
+        Ok((session_id, rx))
+    }
+
+    /// Attach to an existing session, returning buffered history and a new receiver.
+    /// Returns SessionNotFound if the session doesn't exist.
+    pub async fn attach_session(
+        &self,
+        session_id: Uuid,
+    ) -> Result<(Vec<Vec<u8>>, broadcast::Receiver<Vec<u8>>), PtyError> {
+        let sessions = self
+            .sessions
+            .lock()
+            .map_err(|e| PtyError::AttachFailed(e.to_string()))?;
+
+        let session = sessions
+            .get(&session_id)
+            .ok_or(PtyError::SessionNotFound(session_id))?;
+
+        if session.closed {
+            return Err(PtyError::SessionClosed);
+        }
+
+        let history = session.buffer.get_history();
+        let rx = session.buffer.subscribe();
+        session.attached.store(true, Ordering::Relaxed);
+        session.update_activity();
+
+        Ok((history, rx))
+    }
+
+    /// Detach from a session without closing it. Session keeps running in background.
+    pub async fn detach_session(&self, session_id: Uuid) -> Result<(), PtyError> {
+        let sessions = self
+            .sessions
+            .lock()
+            .map_err(|e| PtyError::AttachFailed(e.to_string()))?;
+
+        if let Some(session) = sessions.get(&session_id) {
+            session.attached.store(false, Ordering::Relaxed);
+            session.update_activity();
+        }
+
+        Ok(())
     }
 
     pub async fn write(&self, session_id: Uuid, data: &[u8]) -> Result<(), PtyError> {

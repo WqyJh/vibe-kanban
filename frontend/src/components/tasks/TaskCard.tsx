@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { KanbanCard } from '@/components/ui/shadcn-io/kanban';
-import { Link, Loader2, Settings2, XCircle } from 'lucide-react';
+import { Link, Loader2, Settings2, SquareTerminal, XCircle } from 'lucide-react';
 import type { TaskWithAttemptStatus, BaseCodingAgent } from 'shared/types';
 import { ActionsDropdown } from '@/components/ui/actions-dropdown';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import { attemptsApi } from '@/lib/api';
 import { TaskCardHeader } from './TaskCardHeader';
 import { AgentIcon, getAgentName } from '@/components/agents/AgentIcon';
 import { useTranslation } from 'react-i18next';
+import { useTerminal } from '@/contexts/TerminalContext';
 
 type Task = TaskWithAttemptStatus;
 
@@ -32,6 +33,7 @@ export function TaskCard({
 }: TaskCardProps) {
   const { t } = useTranslation('tasks');
   const navigate = useNavigateWithSearch();
+  const { hasTerminalForTask } = useTerminal();
   const [isNavigatingToParent, setIsNavigatingToParent] = useState(false);
 
   const handleClick = useCallback(() => {
@@ -108,6 +110,9 @@ export function TaskCard({
                 >
                   <Link className="h-4 w-4" />
                 </Button>
+              )}
+              {hasTerminalForTask(task.id) && (
+                <SquareTerminal className="h-4 w-4 text-emerald-500" />
               )}
               <ActionsDropdown task={task} />
             </>

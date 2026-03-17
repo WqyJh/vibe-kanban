@@ -1,0 +1,74 @@
+import { useEffect, useRef } from 'react';
+import { useTerminal } from '@/contexts/TerminalContext';
+import { TerminalTabBar } from './TerminalTabBar';
+import { XTermInstance } from './XTermInstance';
+
+interface TerminalPanelProps {
+  workspaceId: string;
+  taskId: string;
+  cwd: string | null;
+}
+
+export function TerminalPanel({ workspaceId, taskId, cwd }: TerminalPanelProps) {
+  const {
+    getTabsForWorkspace,
+    getActiveTab,
+    createTab,
+    closeTab,
+    setActiveTab,
+    clearWorkspaceTabs,
+    setSessionId,
+  } = useTerminal();
+
+  const tabs = getTabsForWorkspace(workspaceId);
+  const activeTab = getActiveTab(workspaceId);
+
+  const creatingRef = useRef(false);
+  const prevWorkspaceIdRef = useRef<string | null>(null);
+
+  // Clean up terminals when workspace changes
+  useEffect(() => {
+    if (
+      prevWorkspaceIdRef.current &&
+      prevWorkspaceIdRef.current !== workspaceId
+    ) {
+      clearWorkspaceTabs(prevWorkspaceIdRef.current);
+    }
+    prevWorkspaceIdRef.current = workspaceId;
+  }, [workspaceId, clearWorkspaceTabs]);
+
+  // Auto-create first tab when workspace is selected and terminal mode is active
+  useEffect(() => {
+    if (workspaceId && cwd && tabs.length === 0 && !creatingRef.current) {
+      creatingRef.current = true;
+      createTab(workspaceId, taskId, cwd);
+    }
+    if (tabs.length > 0) {
+      creatingRef.current = false;
+    }
+  }, [workspaceId, taskId, cwd, tabs.length, createTab]);
+
+  return (
+    <div className="flex flex-col h-full min-h-0 bg-secondary">
+      <TerminalTabBar
+        tabs={tabs}
+        activeTabId={activeTab?.id ?? null}
+        onTabSelect={(tabId) => setActiveTab(workspaceId, tabId)}
+        onTabClose={(tabId) => closeTab(workspaceId, tabId)}
+        onNewTab={() => cwd && createTab(workspaceId, taskId, cwd)}
+      />
+      <div className="flex-1 min-h-0 overflow-hidden">
+        {tabs.map((tab) => (
+          <XTermInstance
+            key={tab.id}
+            workspaceId={workspaceId}
+            isActive={tab.id === activeTab?.id}
+            onClose={() => closeTab(workspaceId, tab.id)}
+            sessionId={tab.sessionId}
+            onSessionId={(sid) => setSessionId(workspaceId, tab.id, sid)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}

@@ -1,4 +1,4 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, useRef } from 'react';
 import {
   Group,
   Panel,
@@ -9,12 +9,13 @@ import {
 import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
-export type LayoutMode = 'preview' | 'diffs' | null;
+export type LayoutMode = 'preview' | 'diffs' | 'terminal' | null;
 
 interface TasksLayoutProps {
   kanban: ReactNode;
   attempt: ReactNode;
   aux: ReactNode;
+  terminal?: ReactNode;
   isPanelOpen: boolean;
   mode: LayoutMode;
   isMobile?: boolean;
@@ -26,38 +27,62 @@ const COLLAPSED_SIZE = 0; // percentage (0-100)
 
 /**
  * AuxRouter - Handles nested AnimatePresence for preview/diffs transitions.
+ * Terminal is kept alive (mounted but hidden) to preserve xterm.js state and WebSocket.
  */
-function AuxRouter({ mode, aux }: { mode: LayoutMode; aux: ReactNode }) {
+function AuxRouter({ mode, aux, terminal }: { mode: LayoutMode; aux: ReactNode; terminal?: ReactNode }) {
+  const hasEverMountedTerminal = useRef(false);
+  if (mode === 'terminal' || terminal) {
+    hasEverMountedTerminal.current = true;
+  }
+
   return (
-    <AnimatePresence initial={false} mode="popLayout">
-      {mode && (
-        <motion.div
-          key={mode}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}
-          className="h-full min-h-0"
+    <div className="h-full min-h-0 relative">
+      {/* Preview/Diffs - use AnimatePresence for transitions */}
+      <div className={mode !== 'terminal' ? 'h-full min-h-0' : 'hidden'}>
+        <AnimatePresence initial={false} mode="popLayout">
+          {(mode === 'preview' || mode === 'diffs') && (
+            <motion.div
+              key={mode}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}
+              className="h-full min-h-0"
+            >
+              {aux}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Terminal - always mounted once it's been shown, just hidden via CSS */}
+      {hasEverMountedTerminal.current && (
+        <div
+          className="h-full min-h-0 absolute inset-0"
+          style={{ display: mode === 'terminal' ? 'block' : 'none' }}
         >
-          {aux}
-        </motion.div>
+          {terminal}
+        </div>
       )}
-    </AnimatePresence>
+    </div>
   );
 }
 
 /**
  * RightWorkArea - Contains header and Attempt/Aux content.
  * Shows just Attempt when mode === null, or Attempt | Aux split when mode !== null.
+ * Aux panel shows diffs, preview, or terminal based on mode.
  */
 function RightWorkArea({
   attempt,
   aux,
+  terminal,
   mode,
   rightHeader,
 }: {
   attempt: ReactNode;
   aux: ReactNode;
+  terminal?: ReactNode;
   mode: LayoutMode;
   rightHeader?: ReactNode;
 }) {
@@ -72,6 +97,7 @@ function RightWorkArea({
   };
 
   const hasAux = mode !== null;
+  const auxLabel = mode === 'preview' ? 'Preview' : mode === 'diffs' ? 'Diffs' : 'Terminal';
 
   return (
     <div className="h-full min-h-0 flex flex-col">
@@ -128,9 +154,9 @@ function RightWorkArea({
                 minSize={MIN_PANEL_SIZE}
                 className="min-w-0 min-h-0 overflow-hidden"
                 role="region"
-                aria-label={mode === 'preview' ? 'Preview' : 'Diffs'}
+                aria-label={auxLabel}
               >
-                <AuxRouter mode={mode} aux={aux} />
+                <AuxRouter mode={mode} aux={aux} terminal={terminal} />
               </Panel>
             </>
           )}
@@ -155,18 +181,20 @@ function DesktopSimple({
   kanban,
   attempt,
   aux,
+  terminal,
   mode,
   rightHeader,
 }: {
   kanban: ReactNode;
   attempt: ReactNode;
   aux: ReactNode;
+  terminal?: ReactNode;
   mode: LayoutMode;
   rightHeader?: ReactNode;
 }) {
   const hasAux = mode !== null;
 
-  // When aux (diff/preview) is open, hide kanban and show only RightWorkArea.
+  // When aux (diff/preview/terminal) is open, hide kanban and show only RightWorkArea.
   // We always render RightWorkArea at the SAME tree position (second child)
   // so VirtualizedList is never unmounted on mode change.
   return (
@@ -191,6 +219,7 @@ function DesktopSimple({
         <RightWorkArea
           attempt={attempt}
           aux={aux}
+          terminal={terminal}
           mode={mode}
           rightHeader={rightHeader}
         />
@@ -203,6 +232,7 @@ export function TasksLayout({
   kanban,
   attempt,
   aux,
+  terminal,
   isPanelOpen,
   mode,
   isMobile = false,
@@ -255,6 +285,7 @@ export function TasksLayout({
         kanban={kanban}
         attempt={attempt}
         aux={aux}
+        terminal={terminal}
         mode={mode}
         rightHeader={rightHeader}
       />

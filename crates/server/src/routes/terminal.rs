@@ -21,6 +21,8 @@ use crate::{DeploymentImpl, error::ApiError};
 #[derive(Debug, Deserialize)]
 pub struct TerminalQuery {
     pub workspace_id: Uuid,
+    /// Optional session_id for reconnection to existing PTY session
+    pub session_id: Option<Uuid>,
     #[serde(default = "default_cols")]
     pub cols: u16,
     #[serde(default = "default_rows")]
@@ -47,6 +49,10 @@ enum TerminalCommand {
 enum TerminalMessage {
     Output { data: String },
     Error { message: String },
+    /// Sent on connect with the session_id for future reconnection
+    SessionInfo { session_id: Uuid },
+    /// Sent when trying to reconnect to an expired/unknown session
+    SessionExpired {},
 }
 
 pub async fn terminal_ws(
@@ -88,7 +94,14 @@ pub async fn terminal_ws(
     }
 
     Ok(ws.on_upgrade(move |socket| {
-        handle_terminal_ws(socket, deployment, working_dir, query.cols, query.rows)
+        handle_terminal_ws(
+            socket,
+            deployment,
+            working_dir,
+            query.cols,
+            query.rows,
+            query.session_id,
+        )
     }))
 }
 
@@ -98,27 +111,87 @@ async fn handle_terminal_ws(
     working_dir: PathBuf,
     cols: u16,
     rows: u16,
+    reconnect_session_id: Option<Uuid>,
 ) {
-    let (session_id, mut output_rx) = match deployment
-        .pty()
-        .create_session(working_dir, cols, rows)
-        .await
-    {
-        Ok(result) => result,
-        Err(e) => {
-            tracing::error!("Failed to create PTY session: {}", e);
-            let _ = send_error(socket, &e.to_string()).await;
-            return;
-        }
-    };
+    // Determine session: try to attach or create new
+    let (session_id, mut output_rx, history, session_expired) =
+        if let Some(existing_id) = reconnect_session_id {
+            // Try to attach to existing session
+            match deployment.pty().attach_session(existing_id).await {
+                Ok((history, rx)) => {
+                    tracing::info!("Reattached to terminal session: {}", existing_id);
+                    (existing_id, rx, history, false)
+                }
+                Err(_) => {
+                    // Session not found or expired - create new one
+                    tracing::info!(
+                        "Session {} not found, creating new terminal session",
+                        existing_id
+                    );
+                    match deployment
+                        .pty()
+                        .create_session(working_dir, cols, rows)
+                        .await
+                    {
+                        Ok((new_id, rx)) => (new_id, rx, vec![], true),
+                        Err(e) => {
+                            tracing::error!("Failed to create PTY session: {}", e);
+                            let _ = send_error(socket, &e.to_string()).await;
+                            return;
+                        }
+                    }
+                }
+            }
+        } else {
+            // Create new session
+            match deployment
+                .pty()
+                .create_session(working_dir, cols, rows)
+                .await
+            {
+                Ok((new_id, rx)) => (new_id, rx, vec![], false),
+                Err(e) => {
+                    tracing::error!("Failed to create PTY session: {}", e);
+                    let _ = send_error(socket, &e.to_string()).await;
+                    return;
+                }
+            }
+        };
 
     let (mut ws_sender, mut ws_receiver) = socket.split();
+
+    // If session expired, notify client first
+    if session_expired {
+        let expired_msg = TerminalMessage::SessionExpired {};
+        let json = serde_json::to_string(&expired_msg).unwrap_or_default();
+        if ws_sender.send(Message::Text(json.into())).await.is_err() {
+            return;
+        }
+    }
+
+    // Send session_id to client for future reconnection
+    let session_info = TerminalMessage::SessionInfo { session_id };
+    let json = serde_json::to_string(&session_info).unwrap_or_default();
+    if ws_sender.send(Message::Text(json.into())).await.is_err() {
+        return;
+    }
+
+    // Send buffered history first
+    for data in history {
+        let msg = TerminalMessage::Output {
+            data: BASE64.encode(&data),
+        };
+        let json = serde_json::to_string(&msg).unwrap_or_default();
+        if ws_sender.send(Message::Text(json.into())).await.is_err() {
+            return;
+        }
+    }
 
     let pty_service = deployment.pty().clone();
     let session_id_for_input = session_id;
 
     let output_task = tokio::spawn(async move {
-        while let Some(data) = output_rx.recv().await {
+        while let Ok(data) = output_rx.recv().await {
             let msg = TerminalMessage::Output {
                 data: BASE64.encode(&data),
             };
@@ -154,7 +227,8 @@ async fn handle_terminal_ws(
         }
     }
 
-    let _ = deployment.pty().close_session(session_id).await;
+    // Detach session instead of closing - session persists in background
+    let _ = deployment.pty().detach_session(session_id).await;
     output_task.abort();
 }
 

@@ -47,13 +47,16 @@ function hslToHex(hslValue: string): string {
 
 /**
  * Get the CSS variable value from the computed styles.
- * Looks for the variable on .new-design element first, then falls back to :root.
+ * Looks for the variable on the design scope element (.legacy-design or .new-design),
+ * then falls back to :root.
  */
 function getCssVariable(name: string): string {
-  // Try to get from .new-design element first (where theme variables are scoped)
-  const newDesignEl = document.querySelector('.new-design');
-  if (newDesignEl) {
-    const value = getComputedStyle(newDesignEl).getPropertyValue(name).trim();
+  // Try to get from design scope element first (where theme variables are scoped)
+  const designEl =
+    document.querySelector('.legacy-design') ||
+    document.querySelector('.new-design');
+  if (designEl) {
+    const value = getComputedStyle(designEl).getPropertyValue(name).trim();
     if (value) return value;
   }
   // Fall back to document element
@@ -68,10 +71,18 @@ function getCssVariable(name: string): string {
  * and derives ANSI colors from a combination of theme-appropriate defaults.
  */
 export function getTerminalTheme(): ITheme {
-  const background = getCssVariable('--bg-secondary');
-  const foreground = getCssVariable('--text-high');
-  const success = getCssVariable('--console-success');
-  const error = getCssVariable('--console-error');
+  const background =
+    getCssVariable('--console-background') ||
+    getCssVariable('--bg-secondary');
+  const foreground =
+    getCssVariable('--console-foreground') ||
+    getCssVariable('--text-high');
+  const success =
+    getCssVariable('--console-success') ||
+    getCssVariable('--success');
+  const error =
+    getCssVariable('--console-error') ||
+    getCssVariable('--error');
 
   // Detect if we're in dark mode by checking the class on html element
   const isDark = document.documentElement.classList.contains('dark');
