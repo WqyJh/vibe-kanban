@@ -29,6 +29,7 @@ import { useTaskAttempts } from '@/hooks/useTaskAttempts';
 import { useTaskAttemptWithSession } from '@/hooks/useTaskAttempt';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useBranchStatus, useAttemptExecution } from '@/hooks';
+import { useAttemptRepo } from '@/hooks/useAttemptRepo';
 import { paths } from '@/lib/paths';
 import { ExecutionProcessesProvider } from '@/contexts/ExecutionProcessesContext';
 import { ClickedElementsProvider } from '@/contexts/ClickedElementsProvider';
@@ -327,10 +328,18 @@ export function ProjectTasks() {
   const isTaskView = !!taskId && !effectiveAttemptId;
   const { data: attempt } = useTaskAttemptWithSession(effectiveAttemptId);
   const [copied, setCopied] = useState(false);
+  const { repos } = useAttemptRepo(attempt?.id);
 
   const handleCopyWorktree = useCallback(async () => {
-    const path = attempt?.container_ref;
-    if (!path) return;
+    const containerRef = attempt?.container_ref;
+    if (!containerRef) return;
+    // In worktree mode, container_ref is the workspace dir; append the repo name
+    // In direct mode, container_ref is already the project directory
+    const repo = repos[0];
+    const path =
+      attempt.mode === 'worktree' && repo
+        ? `${containerRef}/${repo.name}`
+        : containerRef;
     try {
       await navigator.clipboard.writeText(path);
       setCopied(true);
@@ -338,7 +347,7 @@ export function ProjectTasks() {
     } catch (err) {
       console.warn('Copy to clipboard failed:', err);
     }
-  }, [attempt?.container_ref]);
+  }, [attempt?.container_ref, attempt?.mode, repos]);
   const { data: branchStatus, error: branchStatusError } = useBranchStatus(
     attempt?.id
   );
