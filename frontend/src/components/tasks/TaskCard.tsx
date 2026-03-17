@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { KanbanCard } from '@/components/ui/shadcn-io/kanban';
-import { Link, Loader2, XCircle } from 'lucide-react';
+import { Link, Loader2, Settings2, XCircle } from 'lucide-react';
 import type { TaskWithAttemptStatus, BaseCodingAgent } from 'shared/types';
 import { ActionsDropdown } from '@/components/ui/actions-dropdown';
 import { Button } from '@/components/ui/button';
@@ -127,6 +127,13 @@ export function TaskCard({
               className="h-3.5 w-3.5"
             />
             <span>{getAgentName(task.executor as BaseCodingAgent)}</span>
+            {task.variant && (
+              <>
+                <span className="text-muted-foreground/50">/</span>
+                <Settings2 className="h-3 w-3" />
+                <span>{task.variant}</span>
+              </>
+            )}
           </div>
         )}
       </div>

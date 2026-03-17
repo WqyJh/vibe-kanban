@@ -42,6 +42,7 @@ pub struct TaskWithAttemptStatus {
     pub has_in_progress_attempt: bool,
     pub last_attempt_failed: bool,
     pub executor: String,
+    pub variant: Option<String>,
 }
 
 impl std::ops::Deref for TaskWithAttemptStatus {
@@ -157,7 +158,19 @@ impl Task {
       WHERE w.task_id = t.id
      ORDER BY s.created_at DESC
       LIMIT 1
-    )                               AS "executor!: String"
+    )                               AS "executor!: String",
+
+  ( SELECT
+        JSON_EXTRACT(ep.executor_action, '$.typ.executor_profile_id.variant')
+      FROM workspaces w
+      JOIN sessions s ON s.workspace_id = w.id
+      JOIN execution_processes ep ON ep.session_id = s.id
+      WHERE w.task_id = t.id
+        AND ep.run_reason IN ('setupscript','cleanupscript','codingagent')
+        AND ep.dropped = FALSE
+     ORDER BY ep.created_at DESC
+      LIMIT 1
+    )                               AS "variant: String"
 
 FROM tasks t
 WHERE t.project_id = $1
@@ -183,6 +196,7 @@ ORDER BY t.created_at DESC"#,
                 has_in_progress_attempt: rec.has_in_progress_attempt != 0,
                 last_attempt_failed: rec.last_attempt_failed != 0,
                 executor: rec.executor,
+                variant: rec.variant,
             })
             .collect();
 

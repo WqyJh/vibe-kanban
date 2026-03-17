@@ -9,7 +9,7 @@ import type { TaskWithAttemptStatus, BaseCodingAgent } from 'shared/types';
 import type { WorkspaceWithSession } from '@/types/attempt';
 import { NewCardContent } from '../ui/new-card';
 import { Button } from '../ui/button';
-import { PlusIcon } from 'lucide-react';
+import { PlusIcon, Settings2 } from 'lucide-react';
 import { CreateAttemptDialog } from '@/components/dialogs/tasks/CreateAttemptDialog';
 import WYSIWYGEditor from '@/components/ui/wysiwyg';
 import { DataTable, type ColumnDef } from '@/components/ui/table';
@@ -127,6 +127,13 @@ const TaskPanel = ({ task }: TaskPanelProps) => {
                   className="h-3.5 w-3.5"
                 />
                 <span>{getAgentName(task.executor as BaseCodingAgent)}</span>
+                {task.variant && (
+                  <>
+                    <span className="text-muted-foreground/50">/</span>
+                    <Settings2 className="h-3 w-3" />
+                    <span>{task.variant}</span>
+                  </>
+                )}
               </div>
             )}
           </div>
