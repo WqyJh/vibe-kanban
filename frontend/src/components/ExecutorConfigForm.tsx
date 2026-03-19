@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useState, useCallback } from 'react';
+import { useMemo, useEffect, useState, useCallback, useRef } from 'react';
 import Form from '@rjsf/core';
 import type { IChangeEvent } from '@rjsf/core';
 import { RJSFValidationError } from '@rjsf/utils';
@@ -68,6 +68,8 @@ export function ExecutorConfigForm({
   isDirty = false,
 }: ExecutorConfigFormProps) {
   const [formData, setFormData] = useState<unknown>(value || {});
+  const formDataRef = useRef<unknown>(formData);
+  formDataRef.current = formData;
   const [validationErrors, setValidationErrors] = useState<
     RJSFValidationError[]
   >([]);
@@ -77,10 +79,13 @@ export function ExecutorConfigForm({
   }, [executor]);
 
   // Custom handler for env field updates
+  // Uses ref to avoid stale closure: React 18 batching means setFormData from
+  // other field changes (e.g. model) may not re-render before env changes fire,
+  // so we must read the latest formData from the ref, not the closure.
   const handleEnvChange = useCallback(
     (envData: Record<string, string> | undefined) => {
       const newFormData = {
-        ...(formData as Record<string, unknown>),
+        ...(formDataRef.current as Record<string, unknown>),
         env: envData,
       };
       setFormData(newFormData);
@@ -88,7 +93,7 @@ export function ExecutorConfigForm({
         onChange(newFormData);
       }
     },
-    [formData, onChange]
+    [onChange]
   );
 
   const uiSchema = useMemo(
@@ -125,7 +130,10 @@ export function ExecutorConfigForm({
   };
 
   const handleSubmit = async (event: IChangeEvent<unknown>) => {
-    const submitData = event.formData;
+    // Use formDataRef instead of event.formData: env changes bypass RJSF's
+    // internal form state via the custom onEnvChange path, so event.formData
+    // may be stale. The ref always holds the latest merged state.
+    const submitData = formDataRef.current;
     setValidationErrors([]);
     if (onSave) {
       await onSave(submitData);
