@@ -49,6 +49,8 @@ enum TerminalCommand {
 enum TerminalMessage {
     Output { data: String },
     Error { message: String },
+    /// Sent when the PTY process exits
+    Exit {},
     /// Sent on connect with the session_id for future reconnection
     SessionInfo { session_id: Uuid },
     /// Sent when trying to reconnect to an expired/unknown session
@@ -114,13 +116,13 @@ async fn handle_terminal_ws(
     reconnect_session_id: Option<Uuid>,
 ) {
     // Determine session: try to attach or create new
-    let (session_id, mut output_rx, history, session_expired) =
+    let (session_id, mut output_rx, history, session_expired, mut exit_rx) =
         if let Some(existing_id) = reconnect_session_id {
             // Try to attach to existing session
             match deployment.pty().attach_session(existing_id).await {
-                Ok((history, rx)) => {
+                Ok((history, rx, exit)) => {
                     tracing::info!("Reattached to terminal session: {}", existing_id);
-                    (existing_id, rx, history, false)
+                    (existing_id, rx, history, false, exit)
                 }
                 Err(_) => {
                     // Session not found or expired - create new one
@@ -133,7 +135,7 @@ async fn handle_terminal_ws(
                         .create_session(working_dir, cols, rows)
                         .await
                     {
-                        Ok((new_id, rx)) => (new_id, rx, vec![], true),
+                        Ok((new_id, rx, exit)) => (new_id, rx, vec![], true, exit),
                         Err(e) => {
                             tracing::error!("Failed to create PTY session: {}", e);
                             let _ = send_error(socket, &e.to_string()).await;
@@ -149,7 +151,7 @@ async fn handle_terminal_ws(
                 .create_session(working_dir, cols, rows)
                 .await
             {
-                Ok((new_id, rx)) => (new_id, rx, vec![], false),
+                Ok((new_id, rx, exit)) => (new_id, rx, vec![], false, exit),
                 Err(e) => {
                     tracing::error!("Failed to create PTY session: {}", e);
                     let _ = send_error(socket, &e.to_string()).await;
@@ -190,18 +192,67 @@ async fn handle_terminal_ws(
     let pty_service = deployment.pty().clone();
     let session_id_for_input = session_id;
 
+    // Check if the process has already exited
+    let already_exited = *exit_rx.borrow_and_update();
+
+    // Clone before moving into the spawned task
+    let mut exit_rx_for_ws = exit_rx.clone();
+
     let output_task = tokio::spawn(async move {
-        while let Ok(data) = output_rx.recv().await {
-            let msg = TerminalMessage::Output {
-                data: BASE64.encode(&data),
-            };
-            let json = match serde_json::to_string(&msg) {
-                Ok(j) => j,
-                Err(_) => continue,
-            };
-            if ws_sender.send(Message::Text(json.into())).await.is_err() {
-                break;
+        if already_exited {
+            // Process already exited, send remaining output then exit message
+            while let Ok(data) = output_rx.try_recv() {
+                let msg = TerminalMessage::Output {
+                    data: BASE64.encode(&data),
+                };
+                if let Ok(json) = serde_json::to_string(&msg) {
+                    if ws_sender.send(Message::Text(json.into())).await.is_err() {
+                        return ws_sender;
+                    }
+                }
             }
+        } else {
+            // Race between output and process exit
+            loop {
+                tokio::select! {
+                    data = output_rx.recv() => {
+                        match data {
+                            Ok(data) => {
+                                let msg = TerminalMessage::Output {
+                                    data: BASE64.encode(&data),
+                                };
+                                let json = match serde_json::to_string(&msg) {
+                                    Ok(j) => j,
+                                    Err(_) => continue,
+                                };
+                                if ws_sender.send(Message::Text(json.into())).await.is_err() {
+                                    return ws_sender;
+                                }
+                            }
+                            Err(_) => break,
+                        }
+                    }
+                    _ = exit_rx_for_ws.changed() => {
+                        // Process exited, drain any remaining output
+                        while let Ok(data) = output_rx.try_recv() {
+                            let msg = TerminalMessage::Output {
+                                data: BASE64.encode(&data),
+                            };
+                            if let Ok(json) = serde_json::to_string(&msg) {
+                                if ws_sender.send(Message::Text(json.into())).await.is_err() {
+                                    return ws_sender;
+                                }
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        // Notify client
+        let exit_msg = TerminalMessage::Exit {};
+        if let Ok(json) = serde_json::to_string(&exit_msg) {
+            let _ = ws_sender.send(Message::Text(json.into())).await;
         }
         ws_sender
     });
@@ -227,9 +278,15 @@ async fn handle_terminal_ws(
         }
     }
 
-    // Detach session instead of closing - session persists in background
-    let _ = deployment.pty().detach_session(session_id).await;
     output_task.abort();
+
+    // Detach session instead of closing - session persists in background
+    // unless the process already exited
+    if *exit_rx.borrow() {
+        let _ = deployment.pty().close_session(session_id).await;
+    } else {
+        let _ = deployment.pty().detach_session(session_id).await;
+    }
 }
 
 async fn send_error(mut socket: WebSocket, message: &str) -> Result<(), axum::Error> {

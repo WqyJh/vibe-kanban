@@ -12,7 +12,7 @@ use std::{
 
 use portable_pty::{CommandBuilder, NativePtySystem, PtySize, PtySystem};
 use thiserror::Error;
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, watch};
 use utils::shell::get_interactive_shell;
 use uuid::Uuid;
 
@@ -88,6 +88,8 @@ struct PtySession {
     buffer: Arc<TerminalBuffer>,
     attached: AtomicBool,
     last_activity: AtomicI64,
+    /// Sender for the exit notification
+    exit_tx: Arc<watch::Sender<bool>>,
 }
 
 impl PtySession {
@@ -162,10 +164,13 @@ impl PtyService {
         working_dir: PathBuf,
         cols: u16,
         rows: u16,
-    ) -> Result<(Uuid, broadcast::Receiver<Vec<u8>>), PtyError> {
+    ) -> Result<(Uuid, broadcast::Receiver<Vec<u8>>, watch::Receiver<bool>), PtyError> {
         let session_id = Uuid::new_v4();
         let buffer = Arc::new(TerminalBuffer::new());
         let buffer_clone = buffer.clone();
+        let (exit_tx, exit_rx) = watch::channel(false);
+        let exit_tx = Arc::new(exit_tx);
+        let exit_tx_clone = exit_tx.clone();
         let shell = get_interactive_shell().await;
 
         let result = tokio::task::spawn_blocking(move || {
@@ -215,6 +220,30 @@ impl PtyService {
             cmd.env_remove("FRONTEND_PORT");
             cmd.env_remove("HOST");
 
+            // Share Cargo build cache across worktrees for Rust projects.
+            if working_dir.join("Cargo.toml").exists() {
+                if let Some(sccache_path) =
+                    utils::shell::resolve_executable_path_blocking("sccache")
+                {
+                    cmd.env("RUSTC_WRAPPER", sccache_path.display().to_string());
+                    let mut basedirs = Vec::new();
+                    if let Some(parent) = working_dir.parent() {
+                        basedirs.push(parent.display().to_string());
+                    }
+                    basedirs.push(
+                        services::services::worktree_manager::WorktreeManager::get_worktree_base_dir()
+                            .display()
+                            .to_string(),
+                    );
+                    cmd.env("SCCACHE_BASEDIRS", basedirs.join(":"));
+                } else {
+                    cmd.env(
+                        "CARGO_TARGET_DIR",
+                        working_dir.join("target").display().to_string(),
+                    );
+                }
+            }
+
             let child = pty_pair
                 .slave
                 .spawn_command(cmd)
@@ -248,6 +277,7 @@ impl PtyService {
                         Err(_) => break,
                     }
                 }
+                let _ = exit_tx_clone.send(true);
                 drop(child);
             });
 
@@ -271,6 +301,7 @@ impl PtyService {
                     .unwrap_or_default()
                     .as_secs() as i64,
             ),
+            exit_tx: exit_tx,
         };
 
         self.sessions
@@ -288,7 +319,7 @@ impl PtyService {
             .buffer
             .subscribe();
 
-        Ok((session_id, rx))
+        Ok((session_id, rx, exit_rx))
     }
 
     /// Attach to an existing session, returning buffered history and a new receiver.
@@ -296,7 +327,7 @@ impl PtyService {
     pub async fn attach_session(
         &self,
         session_id: Uuid,
-    ) -> Result<(Vec<Vec<u8>>, broadcast::Receiver<Vec<u8>>), PtyError> {
+    ) -> Result<(Vec<Vec<u8>>, broadcast::Receiver<Vec<u8>>, watch::Receiver<bool>), PtyError> {
         let sessions = self
             .sessions
             .lock()
@@ -314,8 +345,9 @@ impl PtyService {
         let rx = session.buffer.subscribe();
         session.attached.store(true, Ordering::Relaxed);
         session.update_activity();
+        let exit_rx = (*session.exit_tx).subscribe();
 
-        Ok((history, rx))
+        Ok((history, rx, exit_rx))
     }
 
     /// Detach from a session without closing it. Session keeps running in background.

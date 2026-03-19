@@ -18,18 +18,21 @@ function loadPersistedState(): TerminalState {
         tabsByWorkspace: {},
         activeTabByWorkspace: {},
         closedWorkspaces: [],
+        tabCounterByWorkspace: {},
       };
     const parsed = JSON.parse(raw);
     return {
       tabsByWorkspace: parsed.tabsByWorkspace || {},
       activeTabByWorkspace: parsed.activeTabByWorkspace || {},
       closedWorkspaces: parsed.closedWorkspaces || [],
+      tabCounterByWorkspace: parsed.tabCounterByWorkspace || {},
     };
   } catch {
     return {
       tabsByWorkspace: {},
       activeTabByWorkspace: {},
       closedWorkspaces: [],
+      tabCounterByWorkspace: {},
     };
   }
 }
@@ -57,6 +60,8 @@ interface TerminalState {
   activeTabByWorkspace: Record<string, string | null>;
   /** Workspaces where the user explicitly closed all terminals */
   closedWorkspaces: string[];
+  /** Monotonically increasing counter per workspace for terminal numbering */
+  tabCounterByWorkspace: Record<string, number>;
 }
 
 type TerminalAction =
@@ -89,9 +94,10 @@ function terminalReducer(
     case 'CREATE_TAB': {
       const { workspaceId, taskId, cwd } = action;
       const existingTabs = state.tabsByWorkspace[workspaceId] || [];
+      const nextCounter = (state.tabCounterByWorkspace[workspaceId] || 0) + 1;
       const newTab: TerminalTab = {
         id: generateTabId(),
-        title: `Terminal ${existingTabs.length + 1}`,
+        title: `Terminal ${nextCounter}`,
         workspaceId,
         taskId,
         cwd,
@@ -110,6 +116,10 @@ function terminalReducer(
         closedWorkspaces: state.closedWorkspaces.filter(
           (id) => id !== workspaceId
         ),
+        tabCounterByWorkspace: {
+          ...state.tabCounterByWorkspace,
+          [workspaceId]: nextCounter,
+        },
       };
     }
 
@@ -185,12 +195,18 @@ function terminalReducer(
           ([key]) => key !== workspaceId
         )
       );
+      const restCounter = Object.fromEntries(
+        Object.entries(state.tabCounterByWorkspace).filter(
+          ([key]) => key !== workspaceId
+        )
+      );
       return {
         tabsByWorkspace: restTabs,
         activeTabByWorkspace: restActive,
         closedWorkspaces: state.closedWorkspaces.filter(
           (id) => id !== workspaceId
         ),
+        tabCounterByWorkspace: restCounter,
       };
     }
 
