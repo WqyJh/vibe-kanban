@@ -4,8 +4,43 @@ import {
   useReducer,
   useMemo,
   useCallback,
+  useEffect,
   ReactNode,
 } from 'react';
+
+const STORAGE_KEY = 'vibe-kanban:terminal-sessions';
+
+function loadPersistedState(): TerminalState {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw)
+      return {
+        tabsByWorkspace: {},
+        activeTabByWorkspace: {},
+        closedWorkspaces: [],
+      };
+    const parsed = JSON.parse(raw);
+    return {
+      tabsByWorkspace: parsed.tabsByWorkspace || {},
+      activeTabByWorkspace: parsed.activeTabByWorkspace || {},
+      closedWorkspaces: parsed.closedWorkspaces || [],
+    };
+  } catch {
+    return {
+      tabsByWorkspace: {},
+      activeTabByWorkspace: {},
+      closedWorkspaces: [],
+    };
+  }
+}
+
+function saveState(state: TerminalState) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // storage full or unavailable — ignore
+  }
+}
 
 export interface TerminalTab {
   id: string;
@@ -20,6 +55,8 @@ export interface TerminalTab {
 interface TerminalState {
   tabsByWorkspace: Record<string, TerminalTab[]>;
   activeTabByWorkspace: Record<string, string | null>;
+  /** Workspaces where the user explicitly closed all terminals */
+  closedWorkspaces: string[];
 }
 
 type TerminalAction =
@@ -70,6 +107,9 @@ function terminalReducer(
           ...state.activeTabByWorkspace,
           [workspaceId]: newTab.id,
         },
+        closedWorkspaces: state.closedWorkspaces.filter(
+          (id) => id !== workspaceId
+        ),
       };
     }
 
@@ -88,6 +128,12 @@ function terminalReducer(
         newActiveTab = null;
       }
 
+      // Track when user explicitly closes the last tab
+      const closedWorkspaces =
+        newTabs.length === 0
+          ? [...new Set([...state.closedWorkspaces, workspaceId])]
+          : state.closedWorkspaces;
+
       return {
         ...state,
         tabsByWorkspace: {
@@ -98,6 +144,7 @@ function terminalReducer(
           ...state.activeTabByWorkspace,
           [workspaceId]: newActiveTab,
         },
+        closedWorkspaces,
       };
     }
 
@@ -141,6 +188,9 @@ function terminalReducer(
       return {
         tabsByWorkspace: restTabs,
         activeTabByWorkspace: restActive,
+        closedWorkspaces: state.closedWorkspaces.filter(
+          (id) => id !== workspaceId
+        ),
       };
     }
 
@@ -167,6 +217,7 @@ interface TerminalContextType {
   getTabsForWorkspace: (workspaceId: string) => TerminalTab[];
   getActiveTab: (workspaceId: string) => TerminalTab | null;
   hasTerminalForTask: (taskId: string) => boolean;
+  isWorkspaceClosed: (workspaceId: string) => boolean;
   createTab: (workspaceId: string, taskId: string, cwd: string) => void;
   closeTab: (workspaceId: string, tabId: string) => void;
   setActiveTab: (workspaceId: string, tabId: string) => void;
@@ -182,10 +233,12 @@ interface TerminalProviderProps {
 }
 
 export function TerminalProvider({ children }: TerminalProviderProps) {
-  const [state, dispatch] = useReducer(terminalReducer, {
-    tabsByWorkspace: {},
-    activeTabByWorkspace: {},
-  });
+  const [state, dispatch] = useReducer(terminalReducer, null, loadPersistedState);
+
+  // Persist state to localStorage on every change
+  useEffect(() => {
+    saveState(state);
+  }, [state]);
 
   const getTabsForWorkspace = useCallback(
     (workspaceId: string): TerminalTab[] => {
@@ -211,6 +264,13 @@ export function TerminalProvider({ children }: TerminalProviderProps) {
       );
     },
     [state.tabsByWorkspace]
+  );
+
+  const isWorkspaceClosed = useCallback(
+    (workspaceId: string): boolean => {
+      return state.closedWorkspaces.includes(workspaceId);
+    },
+    [state.closedWorkspaces]
   );
 
   const createTab = useCallback((workspaceId: string, taskId: string, cwd: string) => {
@@ -248,6 +308,7 @@ export function TerminalProvider({ children }: TerminalProviderProps) {
       getTabsForWorkspace,
       getActiveTab,
       hasTerminalForTask,
+      isWorkspaceClosed,
       createTab,
       closeTab,
       setActiveTab,
@@ -259,6 +320,7 @@ export function TerminalProvider({ children }: TerminalProviderProps) {
       getTabsForWorkspace,
       getActiveTab,
       hasTerminalForTask,
+      isWorkspaceClosed,
       createTab,
       closeTab,
       setActiveTab,

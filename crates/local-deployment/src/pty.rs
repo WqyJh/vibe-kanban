@@ -208,6 +208,13 @@ impl PtyService {
             cmd.env("TERM", "xterm-256color");
             cmd.env("COLORTERM", "truecolor");
 
+            // Remove vibe-kanban port env vars to prevent conflicts
+            // when the shell starts its own servers (same as dev server / agent executor)
+            cmd.env_remove("PORT");
+            cmd.env_remove("BACKEND_PORT");
+            cmd.env_remove("FRONTEND_PORT");
+            cmd.env_remove("HOST");
+
             let child = pty_pair
                 .slave
                 .spawn_command(cmd)

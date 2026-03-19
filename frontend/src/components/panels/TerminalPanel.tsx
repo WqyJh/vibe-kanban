@@ -18,6 +18,7 @@ export function TerminalPanel({ workspaceId, taskId, cwd }: TerminalPanelProps) 
     setActiveTab,
     clearWorkspaceTabs,
     setSessionId,
+    isWorkspaceClosed,
   } = useTerminal();
 
   const tabs = getTabsForWorkspace(workspaceId);
@@ -37,16 +38,23 @@ export function TerminalPanel({ workspaceId, taskId, cwd }: TerminalPanelProps) 
     prevWorkspaceIdRef.current = workspaceId;
   }, [workspaceId, clearWorkspaceTabs]);
 
-  // Auto-create first tab when workspace is selected and terminal mode is active
+  // Auto-create first tab when workspace is selected and terminal mode is active.
+  // Skip if the user explicitly closed all terminals for this workspace.
   useEffect(() => {
-    if (workspaceId && cwd && tabs.length === 0 && !creatingRef.current) {
+    if (
+      workspaceId &&
+      cwd &&
+      tabs.length === 0 &&
+      !creatingRef.current &&
+      !isWorkspaceClosed(workspaceId)
+    ) {
       creatingRef.current = true;
       createTab(workspaceId, taskId, cwd);
     }
     if (tabs.length > 0) {
       creatingRef.current = false;
     }
-  }, [workspaceId, taskId, cwd, tabs.length, createTab]);
+  }, [workspaceId, taskId, cwd, tabs.length, createTab, isWorkspaceClosed]);
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-secondary">
