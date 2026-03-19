@@ -24,6 +24,8 @@ pub struct Cline {
     pub append_prompt: AppendPrompt,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub yolo: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
     #[serde(flatten)]
     pub cmd: CmdOverrides,
     #[serde(skip)]
@@ -34,7 +36,10 @@ pub struct Cline {
 
 impl Cline {
     fn build_command_builder(&self) -> Result<CommandBuilder, CommandBuildError> {
-        let builder = CommandBuilder::new("npx -y cline@2.7.0").extend_params(["--acp"]);
+        let mut builder = CommandBuilder::new("npx -y cline@2.8.1").extend_params(["--acp"]);
+        if let Some(model) = &self.model {
+            builder = builder.extend_params(["--model", model]);
+        }
         apply_overrides(builder, &self.cmd)
     }
 }

@@ -17,6 +17,12 @@
         "null"
       ]
     },
+    "model": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "base_command_override": {
       "title": "Base Command Override",
       "description": "Override the base command. Leave empty to use the default.",
