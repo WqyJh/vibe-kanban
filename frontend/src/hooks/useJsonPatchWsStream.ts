@@ -49,8 +49,14 @@ export const useJsonPatchWsStream = <T extends object>(
   const finishedRef = useRef<boolean>(false);
   const cleanupCalledRef = useRef<boolean>(false);
 
-  const injectInitialEntry = options?.injectInitialEntry;
-  const deduplicatePatches = options?.deduplicatePatches;
+  // Store callbacks in refs so the connection effect doesn't re-run
+  // when callers forget to memoize them
+  const initialDataRef = useRef(initialData);
+  initialDataRef.current = initialData;
+  const injectInitialEntryRef = useRef(options?.injectInitialEntry);
+  injectInitialEntryRef.current = options?.injectInitialEntry;
+  const deduplicatePatchesRef = useRef(options?.deduplicatePatches);
+  deduplicatePatchesRef.current = options?.deduplicatePatches;
 
   function scheduleReconnect() {
     if (retryTimerRef.current) return; // already scheduled
@@ -89,11 +95,11 @@ export const useJsonPatchWsStream = <T extends object>(
 
     // Initialize data
     if (!dataRef.current) {
-      dataRef.current = initialData();
+      dataRef.current = initialDataRef.current();
 
       // Inject initial entry if provided
-      if (injectInitialEntry) {
-        injectInitialEntry(dataRef.current);
+      if (injectInitialEntryRef.current) {
+        injectInitialEntryRef.current(dataRef.current);
       }
     }
 
@@ -132,9 +138,8 @@ export const useJsonPatchWsStream = <T extends object>(
           // Handle JsonPatch messages (same as SSE json_patch event)
           if ('JsonPatch' in msg) {
             const patches: Operation[] = msg.JsonPatch;
-            const filtered = deduplicatePatches
-              ? deduplicatePatches(patches)
-              : patches;
+            const dedupe = deduplicatePatchesRef.current;
+            const filtered = dedupe ? dedupe(patches) : patches;
 
             const current = dataRef.current;
             if (!filtered.length || !current) return;
@@ -217,14 +222,7 @@ export const useJsonPatchWsStream = <T extends object>(
       setData(undefined);
       setIsInitialized(false);
     };
-  }, [
-    endpoint,
-    enabled,
-    initialData,
-    injectInitialEntry,
-    deduplicatePatches,
-    retryNonce,
-  ]);
+  }, [endpoint, enabled, retryNonce]);
 
   return { data, isConnected, isInitialized, error };
 };
