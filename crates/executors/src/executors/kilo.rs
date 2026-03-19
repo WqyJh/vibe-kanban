@@ -24,6 +24,8 @@ pub struct Kilo {
     pub append_prompt: AppendPrompt,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub yolo: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
     #[serde(flatten)]
     pub cmd: CmdOverrides,
     #[serde(skip)]
@@ -53,7 +55,10 @@ impl StandardCodingAgentExecutor for Kilo {
     ) -> Result<SpawnedChild, ExecutorError> {
         let command = self.build_command_builder()?.build_initial()?;
         let combined_prompt = self.append_prompt.combine_prompt(prompt);
-        let harness = AcpAgentHarness::with_session_namespace("kilo_sessions");
+        let mut harness = AcpAgentHarness::with_session_namespace("kilo_sessions");
+        if let Some(model) = &self.model {
+            harness = harness.with_model(model);
+        }
         let approvals = if self.yolo.unwrap_or(false) {
             None
         } else {
@@ -81,7 +86,10 @@ impl StandardCodingAgentExecutor for Kilo {
     ) -> Result<SpawnedChild, ExecutorError> {
         let command = self.build_command_builder()?.build_follow_up(&[])?;
         let combined_prompt = self.append_prompt.combine_prompt(prompt);
-        let harness = AcpAgentHarness::with_session_namespace("kilo_sessions");
+        let mut harness = AcpAgentHarness::with_session_namespace("kilo_sessions");
+        if let Some(model) = &self.model {
+            harness = harness.with_model(model);
+        }
         let approvals = if self.yolo.unwrap_or(false) {
             None
         } else {
