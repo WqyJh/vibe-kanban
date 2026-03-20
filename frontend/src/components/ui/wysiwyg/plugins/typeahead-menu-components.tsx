@@ -93,6 +93,39 @@ interface TypeaheadMenuProps {
   children: ReactNode;
 }
 
+/**
+ * When a Radix Popover is portaled to document.body, it escapes the
+ * .legacy-design scope required by Tailwind's `important: '.legacy-design'`.
+ * This wrapper inherits the theme classes from the nearest .legacy-design
+ * ancestor so that CSS variables and utility classes resolve correctly.
+ */
+function LegacyDesignInherit({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    const source = document.querySelector('.legacy-design');
+    if (!source) return;
+
+    const syncClasses = () => {
+      const themeClasses = Array.from(source.classList).filter(
+        (c) => c === 'legacy-design' || c === 'dark'
+      );
+      el.className = themeClasses.join(' ');
+    };
+
+    syncClasses();
+
+    const observer = new MutationObserver(syncClasses);
+    observer.observe(source, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
+
+  return <div ref={ref}>{children}</div>;
+}
+
 function TypeaheadMenuRoot({ anchorEl, children }: TypeaheadMenuProps) {
   const [placement, setPlacement] = useState<TypeaheadPlacement>(() =>
     getPlacement(anchorEl)
@@ -156,7 +189,7 @@ function TypeaheadMenuRoot({ anchorEl, children }: TypeaheadMenuProps) {
         style={contentStyle}
         className="w-auto min-w-80 max-w-[370px] p-0 overflow-hidden !bg-background"
       >
-        {children}
+        <LegacyDesignInherit>{children}</LegacyDesignInherit>
       </PopoverContent>
     </Popover>
   );
