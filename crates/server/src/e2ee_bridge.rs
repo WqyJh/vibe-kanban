@@ -1,3 +1,4 @@
+use std::time::Duration;
 use std::{collections::HashMap, sync::Arc};
 
 use anyhow::{Context, Result};
@@ -31,10 +32,67 @@ enum GatewayMessage {
     ClientDisconnected,
 }
 
-/// Run the bridge, connecting to the gateway and proxying requests to the local server.
+/// Whether an error represents a permanent auth failure that should not be retried.
+fn is_auth_error(e: &anyhow::Error) -> bool {
+    let msg = e.to_string();
+    msg.contains("Authentication failed")
+}
+
+/// Exponential backoff: 1s * 2^attempt, capped at 30s, with random jitter.
+fn backoff_delay(attempt: u32) -> Duration {
+    let base = Duration::from_secs(1);
+    let cap = Duration::from_secs(30);
+    let exp = attempt.min(10);
+    let delay = base.saturating_mul(1u32 << exp).min(cap);
+    // Add 0–500ms random jitter to avoid thundering herd
+    let jitter_ms: u64 = rand::random::<u64>() % 500;
+    delay + Duration::from_millis(jitter_ms)
+}
+
+/// Run the bridge with automatic reconnection on disconnect.
+///
+/// Retries indefinitely with exponential backoff on transient failures (connection errors,
+/// gateway restarts). Returns immediately on permanent auth failures.
 pub async fn run_bridge(creds: &Credentials, local_port: u16) -> Result<()> {
     let crypto = BridgeCryptoService::from_master_secret_b64(&creds.master_secret)?;
 
+    let mut attempt: u32 = 0;
+    loop {
+        info!(
+            "Connecting to gateway: {} (attempt {})",
+            creds.gateway_url,
+            attempt + 1
+        );
+
+        match connect_and_run(&crypto, creds, local_port).await {
+            Ok(()) => {
+                warn!("Gateway connection ended unexpectedly, reconnecting...");
+            }
+            Err(e) if is_auth_error(&e) => {
+                error!("E2EE bridge auth failed permanently: {e}");
+                return Err(e);
+            }
+            Err(e) => {
+                warn!("Gateway connection error: {e}, reconnecting...");
+            }
+        }
+
+        let delay = backoff_delay(attempt);
+        info!("Reconnecting in {delay:?}...");
+        tokio::time::sleep(delay).await;
+        attempt = attempt.saturating_add(1);
+    }
+}
+
+/// Single connection attempt: connect, authenticate, register, and run the message loop.
+///
+/// Returns `Ok(())` when the connection ends (clean close or stream exhaustion).
+/// Returns `Err` for auth failures or connection errors.
+async fn connect_and_run(
+    crypto: &BridgeCryptoService,
+    creds: &Credentials,
+    local_port: u16,
+) -> Result<()> {
     // Create signed auth token
     let auth_token = crypto.create_auth_token()?;
     let token_json = serde_json::to_string(&auth_token)?;
@@ -46,8 +104,6 @@ pub async fn run_bridge(creds: &Credentials, local_port: u16) -> Result<()> {
         .replace("http://", "ws://")
         .replace("https://", "wss://");
     let connect_url = format!("{ws_url}/ws/daemon?token={token_encoded}");
-
-    info!("Connecting to gateway: {}", creds.gateway_url);
 
     let (ws_stream, _) = connect_async(&connect_url).await.map_err(|e| {
         anyhow::anyhow!(
@@ -61,9 +117,9 @@ pub async fn run_bridge(creds: &Credentials, local_port: u16) -> Result<()> {
     info!("Connected to gateway, waiting for auth...");
 
     // Wait for auth response (with timeout)
-    let first_msg = tokio::time::timeout(std::time::Duration::from_secs(10), ws_receiver.next())
+    let first_msg = tokio::time::timeout(Duration::from_secs(10), ws_receiver.next())
         .await
-        .context("Timed out waiting for gateway auth response — the gateway may have rejected the token silently")?
+        .context("Timed out waiting for gateway auth response")?
         .context("Connection closed before auth response")?
         .context("WebSocket error during auth")?;
 
@@ -116,6 +172,7 @@ pub async fn run_bridge(creds: &Credentials, local_port: u16) -> Result<()> {
 
     let local_base = format!("http://127.0.0.1:{local_port}");
     let http_client = reqwest::Client::new();
+    // Fresh ws_connections for each connection — old sub-connections are dead after disconnect
     let ws_connections: WsConnections = Arc::new(Mutex::new(HashMap::new()));
 
     info!("Bridge active — proxying to {local_base}, waiting for WebUI connections...");
