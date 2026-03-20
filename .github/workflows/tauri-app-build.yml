@@ -1,0 +1,290 @@
+name: Tauri App Build
+
+on:
+  push:
+    branches:
+      - 539b-app
+  workflow_dispatch:
+
+concurrency:
+  group: tauri-app-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/539b-app' }}
+
+env:
+  CARGO_TERM_COLOR: always
+  NODE_VERSION: 22
+  PNPM_VERSION: 10.13.1
+  RUST_TOOLCHAIN: stable
+
+jobs:
+  build-desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            name: linux-x64
+          - os: macos-15
+            target: aarch64-apple-darwin
+            name: macos-arm64
+          - os: macos-15
+            target: x86_64-apple-darwin
+            name: macos-x64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            name: windows-x64
+    runs-on: ${{ matrix.os }}
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: "sccache"
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: ./.github/actions/setup-node
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          targets: ${{ matrix.target }}
+
+      - name: Setup sccache
+        uses: BloopAI/sccache-action@main
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "."
+          cache-provider: "github"
+          cache-on-failure: true
+          shared-key: tauri-desktop-${{ matrix.name }}
+          cache-all-crates: true
+
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libjavascriptcoregtk-4.1-dev \
+            libsoup-3.0-dev
+
+      - name: Build Tauri app
+        run: cd frontend && pnpm tauri build
+        env:
+          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+
+      - name: Find build artifacts (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          echo "=== Tauri build outputs ==="
+          find frontend/src-tauri/target/release/bundle -type f \( -name "*.deb" -o -name "*.AppImage" -o -name "*.rpm" \) 2>/dev/null || true
+          find frontend/src-tauri/target/${{ matrix.target }}/release/bundle -type f \( -name "*.deb" -o -name "*.AppImage" -o -name "*.rpm" \) 2>/dev/null || true
+
+      - name: Find build artifacts (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          echo "=== Tauri build outputs ==="
+          find frontend/src-tauri/target/release/bundle -type f \( -name "*.dmg" -o -name "*.app" \) 2>/dev/null || true
+          find frontend/src-tauri/target/${{ matrix.target }}/release/bundle -type f \( -name "*.dmg" -o -name "*.app" \) 2>/dev/null || true
+
+      - name: Find build artifacts (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          echo "=== Tauri build outputs ==="
+          find frontend/src-tauri/target/release/bundle -type f \( -name "*.msi" -o -name "*.exe" \) 2>/dev/null || true
+          find frontend/src-tauri/target/${{ matrix.target }}/release/bundle -type f \( -name "*.msi" -o -name "*.exe" \) 2>/dev/null || true
+
+      - name: Upload Linux artifacts
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v6
+        with:
+          name: tauri-app-${{ matrix.name }}
+          path: |
+            frontend/src-tauri/target/release/bundle/**/*.deb
+            frontend/src-tauri/target/release/bundle/**/*.AppImage
+            frontend/src-tauri/target/release/bundle/**/*.rpm
+            frontend/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.deb
+            frontend/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage
+            frontend/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.rpm
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Upload macOS artifacts
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v6
+        with:
+          name: tauri-app-${{ matrix.name }}
+          path: |
+            frontend/src-tauri/target/release/bundle/**/*.dmg
+            frontend/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.dmg
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Upload Windows artifacts
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v6
+        with:
+          name: tauri-app-${{ matrix.name }}
+          path: |
+            frontend/src-tauri/target/release/bundle/**/*.msi
+            frontend/src-tauri/target/release/bundle/**/*.exe
+            frontend/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.msi
+            frontend/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.exe
+          retention-days: 14
+          if-no-files-found: warn
+
+  build-android:
+    runs-on: ubuntu-latest
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: "sccache"
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: ./.github/actions/setup-node
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
+
+      - name: Setup sccache
+        uses: BloopAI/sccache-action@main
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "."
+          cache-provider: "github"
+          cache-on-failure: true
+          shared-key: tauri-android
+          cache-all-crates: true
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK components
+        run: |
+          sdkmanager --install \
+            "platforms;android-34" \
+            "build-tools;34.0.0" \
+            "ndk;27.2.12479018" \
+            "cmake;3.22.1"
+
+      - name: Setup Android NDK
+        run: |
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> $GITHUB_ENV
+          echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/27.2.12479018" >> $GITHUB_ENV
+
+      - name: Initialize Tauri Android project
+        run: cd frontend && pnpm tauri android init
+        continue-on-error: true
+
+      - name: Build Tauri Android app
+        run: cd frontend && pnpm tauri android build
+        env:
+          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+
+      - name: Find Android artifacts
+        shell: bash
+        run: |
+          echo "=== Android build outputs ==="
+          find frontend/src-tauri -type f \( -name "*.apk" -o -name "*.aab" \) 2>/dev/null || true
+
+      - name: Upload Android artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: tauri-app-android
+          path: |
+            frontend/src-tauri/gen/android/**/build/outputs/**/*.apk
+            frontend/src-tauri/gen/android/**/build/outputs/**/*.aab
+          retention-days: 14
+          if-no-files-found: warn
+
+  build-ios:
+    runs-on: macos-15
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: "sccache"
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: ./.github/actions/setup-node
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          targets: aarch64-apple-ios,x86_64-apple-ios,aarch64-apple-ios-sim
+
+      - name: Setup sccache
+        uses: BloopAI/sccache-action@main
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "."
+          cache-provider: "github"
+          cache-on-failure: true
+          shared-key: tauri-ios
+          cache-all-crates: true
+
+      - name: Select Xcode version
+        run: sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
+
+      - name: Initialize Tauri iOS project
+        run: cd frontend && pnpm tauri ios init
+        continue-on-error: true
+
+      - name: Build Tauri iOS app
+        run: cd frontend && pnpm tauri ios build
+        env:
+          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+
+      - name: Find iOS artifacts
+        shell: bash
+        run: |
+          echo "=== iOS build outputs ==="
+          find frontend/src-tauri/gen/apple -type f \( -name "*.ipa" -o -name "*.app" \) 2>/dev/null || true
+          find frontend/src-tauri/target -type f \( -name "*.ipa" \) 2>/dev/null || true
+
+      - name: Upload iOS artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: tauri-app-ios
+          path: |
+            frontend/src-tauri/gen/apple/build/**/*.ipa
+            frontend/src-tauri/gen/apple/Build/**/*.ipa
+          retention-days: 14
+          if-no-files-found: warn

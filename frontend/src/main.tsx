@@ -5,6 +5,8 @@ import App from './App.tsx';
 import { ClickToComponent } from 'click-to-react-component';
 import { GatewayProvider } from '@/contexts/GatewayContext';
 import { GatewayGate } from '@/components/gateway/GatewayGate';
+// Tauri platform detection — sets up storage adapter and platform info
+import { isInTauri } from '@/lib/tauri-platform';
 import {
   QueryClient,
   QueryClientProvider,
@@ -23,6 +25,21 @@ import {
   createRoutesFromChildren,
   matchRoutes,
 } from 'react-router-dom';
+
+// Log Tauri platform status at startup
+if (isInTauri()) {
+  console.log('[Vibe Kanban] Running in Tauri native app');
+  // Set viewport meta for mobile
+  const viewport = document.querySelector('meta[name="viewport"]');
+  if (viewport) {
+    viewport.setAttribute(
+      'content',
+      'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover'
+    );
+  }
+} else {
+  console.log('[Vibe Kanban] Running in web browser');
+}
 
 Sentry.init({
   dsn: 'https://1065a1d276a581316999a07d5dffee26@o4509603705192449.ingest.de.sentry.io/4509605576441937',

@@ -14,7 +14,15 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "dev:tauri": "tauri dev",
+    "build:tauri": "tauri build",
+    "android:init": "tauri android init",
+    "android:dev": "tauri android dev",
+    "android:build": "tauri android build",
+    "ios:init": "tauri ios init",
+    "ios:dev": "tauri ios dev",
+    "ios:build": "tauri ios build"
   },
   "dependencies": {
     "@codemirror/lang-json": "^6.0.2",
@@ -92,7 +100,14 @@
     "tailwindcss-animate": "^1.0.7",
     "tweetnacl": "^1.0.3",
     "wa-sqlite": "^1.0.0",
-    "zustand": "^4.5.4"
+    "zustand": "^4.5.4",
+    "@tauri-apps/api": "^2.9.1",
+    "@tauri-apps/plugin-store": "^2.4.2",
+    "@tauri-apps/plugin-notification": "^2.3.3",
+    "@tauri-apps/plugin-deep-link": "^2.4.6",
+    "@tauri-apps/plugin-http": "^2.5.6",
+    "@tauri-apps/plugin-os": "^2.3.2",
+    "@tauri-apps/plugin-shell": "^2.3.2"
   },
   "devDependencies": {
     "@rjsf/core": "6.1.1",
@@ -125,6 +140,7 @@
     "tailwindcss": "^3.4.0",
     "typescript": "^5.9.2",
     "vite": "^5.0.8",
-    "vitest": "^3.2.1"
+    "vitest": "^3.2.1",
+    "@tauri-apps/cli": "^2.9.6"
   }
 }
