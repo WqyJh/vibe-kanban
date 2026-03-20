@@ -795,6 +795,7 @@ impl ClaudeLogProcessor {
                 // TODO: Add proper ToolResult support to NormalizedEntry when the type system supports it
                 None
             }
+            ClaudeContentItem::Unknown => None,
         }
     }
 
@@ -1094,6 +1095,7 @@ impl ClaudeLogProcessor {
                             }
                         }
                         ClaudeContentItem::ToolResult { .. } => {}
+                        ClaudeContentItem::Unknown => {}
                     }
                 }
             }
@@ -2056,6 +2058,8 @@ pub enum ClaudeContentItem {
         content: serde_json::Value,
         is_error: Option<bool>,
     },
+    #[serde(other)]
+    Unknown,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
