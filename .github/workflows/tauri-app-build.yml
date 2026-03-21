@@ -3,12 +3,12 @@ name: Tauri App Build
 on:
   push:
     branches:
-      - 539b-app
+      - vk/539b-app
   workflow_dispatch:
 
 concurrency:
   group: tauri-app-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/539b-app' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/vk/539b-app' }}
 
 env:
   CARGO_TERM_COLOR: always
