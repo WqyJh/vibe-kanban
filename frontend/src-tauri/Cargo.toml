@@ -5,6 +5,8 @@ description = "Vibe Kanban - AI-powered project management"
 authors = ["Vibe Kanban Team"]
 edition = "2021"
 
+[workspace]
+
 [lib]
 name = "vibe_kanban_app_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
