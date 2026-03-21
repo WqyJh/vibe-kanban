@@ -214,6 +214,11 @@ jobs:
         env:
           NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
 
+      - name: Skip beforeBuildCommand (frontend already built)
+        run: |
+          jq '.build.beforeBuildCommand = ""' tauri-app/tauri.conf.json > tauri-app/tauri.conf.json.tmp
+          mv tauri-app/tauri.conf.json.tmp tauri-app/tauri.conf.json
+
       - name: Build Android APK
         run: cargo tauri android build -- --apk
         env:
