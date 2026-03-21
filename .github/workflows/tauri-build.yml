@@ -220,7 +220,7 @@ jobs:
           mv tauri-app/tauri.conf.json.tmp tauri-app/tauri.conf.json
 
       - name: Build Android APK
-        run: cargo tauri android build -- --apk
+        run: cargo tauri android build --apk
         env:
           NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
