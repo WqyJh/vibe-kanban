@@ -1,6 +1,8 @@
-use std::io::{BufRead, BufReader};
-use std::process::{Child, Command, Stdio};
-use std::sync::Mutex;
+use std::{
+    io::{BufRead, BufReader},
+    process::{Child, Command, Stdio},
+    sync::Mutex,
+};
 
 use anyhow::{Context, Result};
 use tauri::{AppHandle, Manager};

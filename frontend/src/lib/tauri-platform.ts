@@ -53,15 +53,23 @@ export async function installTauriPlatformPatches(): Promise<void> {
       if (raw.startsWith('/')) {
         // Relative path → resolve against WS base
         resolvedUrl = wsBase + raw;
-      } else if (raw.startsWith('ws://localhost:') || raw.startsWith('wss://localhost:')) {
+      } else if (
+        raw.startsWith('ws://localhost:') ||
+        raw.startsWith('wss://localhost:')
+      ) {
         // Full URL with explicit port — replace host:port with backend
         // e.g. ws://localhost:3001/api/... → ws://localhost:<backendPort>/api/...
         const pathStart = raw.indexOf('/', 5); // skip ws:// or wss://
-        resolvedUrl = pathStart >= 0 ? wsBase + raw.substring(pathStart) : wsBase;
-      } else if (raw.startsWith('ws://localhost') || raw.startsWith('wss://localhost')) {
+        resolvedUrl =
+          pathStart >= 0 ? wsBase + raw.substring(pathStart) : wsBase;
+      } else if (
+        raw.startsWith('ws://localhost') ||
+        raw.startsWith('wss://localhost')
+      ) {
         // ws://localhost (no port) — rewrite to backend
         const pathStart = raw.indexOf('/', 5);
-        resolvedUrl = pathStart >= 0 ? wsBase + raw.substring(pathStart) : wsBase;
+        resolvedUrl =
+          pathStart >= 0 ? wsBase + raw.substring(pathStart) : wsBase;
       } else {
         resolvedUrl = raw;
       }
@@ -74,7 +82,9 @@ export async function installTauriPlatformPatches(): Promise<void> {
   Object.defineProperty(TauriWebSocket, 'CONNECTING', {
     value: OriginalWebSocket.CONNECTING,
   });
-  Object.defineProperty(TauriWebSocket, 'OPEN', { value: OriginalWebSocket.OPEN });
+  Object.defineProperty(TauriWebSocket, 'OPEN', {
+    value: OriginalWebSocket.OPEN,
+  });
   Object.defineProperty(TauriWebSocket, 'CLOSING', {
     value: OriginalWebSocket.CLOSING,
   });
