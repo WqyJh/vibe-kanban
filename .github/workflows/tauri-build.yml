@@ -1,0 +1,151 @@
+name: Tauri Build
+
+on:
+  push:
+    branches:
+      - vk/b218-app
+  workflow_dispatch:
+
+concurrency:
+  group: tauri-build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  NODE_VERSION: 22
+  PNPM_VERSION: 10.13.1
+  RUST_TOOLCHAIN: nightly-2025-12-04
+
+jobs:
+  build-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: ./.github/actions/setup-node
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build frontend
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+        run: cd frontend && npm run build
+
+      - name: Upload frontend dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist/
+          retention-days: 1
+
+  build-linux:
+    needs: build-frontend
+    runs-on: ubuntu-latest
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: "sccache"
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download frontend dist
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            libgtk-3-dev libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev librsvg2-dev patchelf
+
+      - name: Setup Rust
+        uses: ./.github/actions/cargo-checks-common-setup
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          cache-key: tauri-linux-${{ runner.os }}-${{ runner.arch }}
+
+      - name: Build Tauri app
+        run: cargo build -p vibe-kanban-app --release
+
+      - name: Upload Linux binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: vibe-kanban-linux-x86_64
+          path: target/release/vibe-kanban-app
+          retention-days: 3
+
+  build-macos:
+    needs: build-frontend
+    runs-on: macos-latest
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: "sccache"
+    strategy:
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            arch: apple-silicon
+          - target: x86_64-apple-darwin
+            arch: intel
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download frontend dist
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+
+      - name: Setup Rust
+        uses: ./.github/actions/cargo-checks-common-setup
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          cache-key: tauri-macos-${{ matrix.arch }}-${{ runner.os }}-${{ runner.arch }}
+
+      - name: Add Rust target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Build Tauri app
+        run: cargo build -p vibe-kanban-app --release --target ${{ matrix.target }}
+
+      - name: Upload macOS binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: vibe-kanban-macos-${{ matrix.arch }}
+          path: target/${{ matrix.target }}/release/vibe-kanban-app
+          retention-days: 3
+
+  build-windows:
+    needs: build-frontend
+    runs-on: windows-latest
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: "sccache"
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download frontend dist
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+
+      - name: Setup Rust
+        uses: ./.github/actions/cargo-checks-common-setup
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          cache-key: tauri-windows-${{ runner.os }}-${{ runner.arch }}
+
+      - name: Build Tauri app
+        run: cargo build -p vibe-kanban-app --release
+
+      - name: Upload Windows binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: vibe-kanban-windows-x86_64
+          path: target/release/vibe-kanban-app.exe
+          retention-days: 3
