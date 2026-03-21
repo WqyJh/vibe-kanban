@@ -19,8 +19,13 @@ pub fn run() {
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_window_state::Builder::default().build())
+        .plugin(tauri_plugin_opener::init());
+
+    // Desktop-only plugin: window state persistence
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    let builder = builder.plugin(tauri_plugin_window_state::Builder::default().build());
+
+    builder
         // Setup
         .setup(|app| {
             #[cfg(not(any(target_os = "android", target_os = "ios")))]
@@ -47,9 +52,7 @@ pub fn run() {
                     backend_manager::stop_backend(&handle);
                 }
             }
-        });
-
-    builder
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
