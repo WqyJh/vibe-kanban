@@ -1,3 +1,8 @@
+import { installTauriPlatformPatches } from '@/lib/tauri-platform';
+// Install Tauri platform patches (fetch/WebSocket rewriting) before anything else.
+// This is a no-op when not running inside Tauri.
+installTauriPlatformPatches();
+
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.tsx';

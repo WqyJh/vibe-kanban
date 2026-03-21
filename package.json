@@ -38,6 +38,8 @@
     "remote:prepare-db:check": "cd crates/remote && bash scripts/prepare-db.sh --check",
     "gateway:build": "cd frontend && pnpm run build && cd .. && cargo build --release --bin e2ee-gateway",
     "gateway:dev": "RUST_LOG=debug cargo run --bin e2ee-gateway",
+    "tauri:dev": "cargo run -p vibe-kanban-app",
+    "tauri:build": "cd frontend && pnpm run build && cd .. && cargo build -p vibe-kanban-app --release",
     "prepare": "husky"
   },
   "devDependencies": {
