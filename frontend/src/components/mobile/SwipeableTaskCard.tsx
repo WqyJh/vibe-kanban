@@ -6,10 +6,13 @@ import {
   ArrowRight,
   ChevronRight,
   Play,
-  Trash2,
   Settings2,
 } from 'lucide-react';
-import type { TaskWithAttemptStatus, TaskStatus, BaseCodingAgent } from 'shared/types';
+import type {
+  TaskWithAttemptStatus,
+  TaskStatus,
+  BaseCodingAgent,
+} from 'shared/types';
 import { cn } from '@/lib/utils';
 import { AgentIcon, getAgentName } from '@/components/agents/AgentIcon';
 import { useTranslation } from 'react-i18next';
@@ -27,7 +30,13 @@ interface SwipeableTaskCardProps {
   onLongPress?: (task: Task) => void;
 }
 
-const STATUS_ORDER: TaskStatus[] = ['todo', 'inprogress', 'inreview', 'done', 'cancelled'];
+const STATUS_ORDER: TaskStatus[] = [
+  'todo',
+  'inprogress',
+  'inreview',
+  'done',
+  'cancelled',
+];
 
 function getNextStatus(current: TaskStatus): TaskStatus | null {
   const idx = STATUS_ORDER.indexOf(current);
@@ -57,10 +66,26 @@ export function SwipeableTaskCard({
   const longPressTriggered = useRef(false);
 
   const nextStatus = getNextStatus(task.status);
-  const bgOpacityLeft = useTransform(x, [-SWIPE_THRESHOLD, 0, SWIPE_THRESHOLD], [0.3, 0, 0]);
-  const bgOpacityRight = useTransform(x, [-SWIPE_THRESHOLD, 0, SWIPE_THRESHOLD], [0, 0, 0.3]);
-  const actionOpacityLeft = useTransform(x, [-SWIPE_THRESHOLD * 1.5, -40, 0], [1, 0.5, 0]);
-  const actionOpacityRight = useTransform(x, [0, 40, SWIPE_THRESHOLD * 1.5], [0, 0.5, 1]);
+  const bgOpacityLeft = useTransform(
+    x,
+    [-SWIPE_THRESHOLD, 0, SWIPE_THRESHOLD],
+    [0.3, 0, 0]
+  );
+  const bgOpacityRight = useTransform(
+    x,
+    [-SWIPE_THRESHOLD, 0, SWIPE_THRESHOLD],
+    [0, 0, 0.3]
+  );
+  const actionOpacityLeft = useTransform(
+    x,
+    [-SWIPE_THRESHOLD * 1.5, -40, 0],
+    [1, 0.5, 0]
+  );
+  const actionOpacityRight = useTransform(
+    x,
+    [0, 40, SWIPE_THRESHOLD * 1.5],
+    [0, 0.5, 1]
+  );
 
   const handleDragEnd = useCallback(
     (_: unknown, info: { offset: { x: number }; velocity: { x: number } }) => {
@@ -69,12 +94,11 @@ export function SwipeableTaskCard({
       const velocityX = info.velocity.x;
 
       if (offsetX < -SWIPE_THRESHOLD || velocityX < -SWIPE_VELOCITY_THRESHOLD) {
-        if (onSwipeLeft) {
-          onSwipeLeft(task);
-        } else if (nextStatus) {
-          onSwipeLeft?.(task);
-        }
-      } else if (offsetX > SWIPE_THRESHOLD || velocityX > SWIPE_VELOCITY_THRESHOLD) {
+        onSwipeLeft?.(task);
+      } else if (
+        offsetX > SWIPE_THRESHOLD ||
+        velocityX > SWIPE_VELOCITY_THRESHOLD
+      ) {
         onSwipeRight?.(task);
       }
     },
@@ -122,7 +146,10 @@ export function SwipeableTaskCard({
       >
         {nextStatus ? (
           <>
-            <ArrowRight size={16} className="text-blue-600 dark:text-blue-400" />
+            <ArrowRight
+              size={16}
+              className="text-blue-600 dark:text-blue-400"
+            />
             <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
               {nextStatus}
             </span>

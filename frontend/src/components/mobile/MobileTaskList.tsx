@@ -10,10 +10,18 @@ import { useTaskMutations } from '@/hooks/useTaskMutations';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
 
-const STATUS_TABS: { id: TaskStatus | 'all'; labelKey: string; defaultLabel: string }[] = [
+const STATUS_TABS: {
+  id: TaskStatus | 'all';
+  labelKey: string;
+  defaultLabel: string;
+}[] = [
   { id: 'all', labelKey: 'tabs.all', defaultLabel: 'All' },
   { id: 'todo', labelKey: 'tabs.todo', defaultLabel: 'Todo' },
-  { id: 'inprogress', labelKey: 'tabs.inprogress', defaultLabel: 'In Progress' },
+  {
+    id: 'inprogress',
+    labelKey: 'tabs.inprogress',
+    defaultLabel: 'In Progress',
+  },
   { id: 'inreview', labelKey: 'tabs.inreview', defaultLabel: 'In Review' },
   { id: 'done', labelKey: 'tabs.done', defaultLabel: 'Done' },
 ];
@@ -52,12 +60,24 @@ export function MobileTaskList({
 
   const handleSwipeLeft = useCallback(
     (task: TaskWithAttemptStatus) => {
-      const STATUS_ORDER: TaskStatus[] = ['todo', 'inprogress', 'inreview', 'done', 'cancelled'];
+      const STATUS_ORDER: TaskStatus[] = [
+        'todo',
+        'inprogress',
+        'inreview',
+        'done',
+        'cancelled',
+      ];
       const idx = STATUS_ORDER.indexOf(task.status);
       if (idx >= 0 && idx < STATUS_ORDER.length - 1) {
         updateTask.mutate({
           taskId: task.id,
-          data: { status: STATUS_ORDER[idx + 1] },
+          data: {
+            title: null,
+            description: null,
+            status: STATUS_ORDER[idx + 1],
+            parent_workspace_id: null,
+            image_ids: null,
+          },
         });
       }
     },
@@ -69,7 +89,13 @@ export function MobileTaskList({
       if (task.status === 'todo' || task.status === 'cancelled') {
         updateTask.mutate({
           taskId: task.id,
-          data: { status: 'inprogress' },
+          data: {
+            title: null,
+            description: null,
+            status: 'inprogress',
+            parent_workspace_id: null,
+            image_ids: null,
+          },
         });
       }
     },

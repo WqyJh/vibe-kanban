@@ -56,9 +56,7 @@ export function BottomTabBar({ onCreateTask }: BottomTabBarProps) {
       if (tab.isAction) return false;
       const paths = tab.matchPaths || [tab.path];
       return paths.some(
-        (p) =>
-          location.pathname === p ||
-          location.pathname.startsWith(p + '/')
+        (p) => location.pathname === p || location.pathname.startsWith(p + '/')
       );
     },
     [location.pathname]
@@ -112,12 +110,7 @@ export function BottomTabBar({ onCreateTask }: BottomTabBarProps) {
                 </div>
               ) : (
                 <>
-                  <span
-                    className={cn(
-                      'transition-all',
-                      active && 'scale-110'
-                    )}
-                  >
+                  <span className={cn('transition-all', active && 'scale-110')}>
                     {tab.icon}
                   </span>
                   <span className="text-[10px] font-medium">{tab.label}</span>

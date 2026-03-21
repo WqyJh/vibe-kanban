@@ -60,11 +60,7 @@ const renderTaskCard = (
 ) => {
   return render(
     <MemoryRouter>
-      <SwipeableTaskCard
-        task={task}
-        onClick={vi.fn()}
-        {...props}
-      />
+      <SwipeableTaskCard task={task} onClick={vi.fn()} {...props} />
     </MemoryRouter>
   );
 };
@@ -98,7 +94,9 @@ describe('SwipeableTaskCard', () => {
     const task = createMockTask();
     renderTaskCard(task, { onClick });
 
-    fireEvent.click(screen.getByText('Test Task').closest('div')!.parentElement!);
+    fireEvent.click(
+      screen.getByText('Test Task').closest('div')!.parentElement!
+    );
     expect(onClick).toHaveBeenCalledWith(task);
   });
 

@@ -18,7 +18,7 @@ export function QuickCreateSheet({
   onClose,
 }: QuickCreateSheetProps) {
   const { t } = useTranslation('tasks');
-  const { createAndStart } = useTaskMutations(projectId);
+  const { createTask } = useTaskMutations(projectId);
   const [title, setTitle] = useState('');
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -36,10 +36,14 @@ export function QuickCreateSheet({
   const handleSubmit = useCallback(async () => {
     if (!title.trim()) return;
 
-    createAndStart.mutate(
+    createTask.mutate(
       {
         title: title.trim(),
         project_id: projectId,
+        description: null,
+        status: null,
+        parent_workspace_id: null,
+        image_ids: null,
       },
       {
         onSuccess: () => {
@@ -48,7 +52,7 @@ export function QuickCreateSheet({
         },
       }
     );
-  }, [title, projectId, createAndStart, onClose]);
+  }, [title, projectId, createTask, onClose]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -135,13 +139,17 @@ export function QuickCreateSheet({
                 <Button
                   size="sm"
                   onClick={handleSubmit}
-                  disabled={!title.trim() || createAndStart.isPending}
+                  disabled={!title.trim() || createTask.isPending}
                   className="shrink-0 h-9 w-9 p-0 rounded-full"
                 >
-                  {createAndStart.isPending ? (
+                  {createTask.isPending ? (
                     <motion.div
                       animate={{ rotate: 360 }}
-                      transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+                      transition={{
+                        repeat: Infinity,
+                        duration: 1,
+                        ease: 'linear',
+                      }}
                     >
                       <Send size={16} />
                     </motion.div>

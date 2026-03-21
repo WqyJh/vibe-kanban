@@ -76,7 +76,7 @@ describe('useDeviceType', () => {
     it('returns "mobile" on small screens', () => {
       // mobile = true, tablet = false
       mockUseMediaQuery
-        .mockReturnValueOnce(true)  // isMobile
+        .mockReturnValueOnce(true) // isMobile
         .mockReturnValueOnce(false); // isTablet
       const { result } = renderHook(() => useDeviceType());
       expect(result.current).toBe('mobile');

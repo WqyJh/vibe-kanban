@@ -1,5 +1,10 @@
 import { useState, useCallback } from 'react';
-import { Outlet, useSearchParams, useLocation, useParams } from 'react-router-dom';
+import {
+  Outlet,
+  useSearchParams,
+  useLocation,
+  useParams,
+} from 'react-router-dom';
 import { DevBanner } from '@/components/DevBanner';
 import { Navbar } from '@/components/layout/Navbar';
 import { MobileHeader } from '@/components/mobile/MobileHeader';
@@ -45,8 +50,7 @@ export function NormalLayout() {
         <MobileHeader
           title={getPageTitle()}
           showBack={
-            location.pathname !== '/' &&
-            location.pathname !== '/local-projects'
+            location.pathname !== '/' && location.pathname !== '/local-projects'
           }
         />
         <main
